@@ -1,6 +1,6 @@
 # Play listing and declarations draft
 
-Prepared October 13, 2026 for PWA version 5. Review against the final live app and Android artifact before submitting.
+Prepared October 13, 2026 for PWA version 5.1. Review against the final live app and Android artifact before submitting.
 
 ## Listing text
 
@@ -10,11 +10,13 @@ Prepared October 13, 2026 for PWA version 5. Review against the final live app a
 
 **Full description draft:**
 
-Build a home training routine that fits your life with FORM. Browse 33 workouts for full body, abs, chest, arms, core, back, glutes and legs. Filter by level and training style, save favorites and review exercise guidance before starting.
+Build a home training routine that fits your life with FORM. Browse 37 workouts for full body, abs, chest, arms, core, back, glutes and legs. Filter by level and training style, save favorites and review exercise guidance before starting.
 
-Choose your goal, experience level, available equipment, training days and session length. Follow one of six program templates with your chosen 2–52 week length, or use a personal goal and custom dates. Build your own routine, reorder or replace movements and adjust work and recovery intervals.
+Choose from nine goals, your experience level, available equipment, training days and session length. Follow one of seven program templates with your chosen 2–52 week length, or use a personal goal and custom dates. Build your own routine, reorder or replace movements and adjust work and recovery intervals.
 
-Follow the visual timer with warm-up, activity, recovery and cool-down. Explore 32 illustrated movements with written cues. Optional spoken exercise names use your device's browser voice service; optional video demonstrations need internet. Availability varies by device.
+Adults can choose Curves & glute development for glute, core and balanced strength practice, with floor or supported standing options. Its starting program is eight weeks and the length is flexible. Optional waist and hip records can be entered independently of body weight. Strength assessments and entered measurements show personal observations; the app cannot guarantee a particular figure, selectively reduce waist fat or prescribe an ideal body ratio. Weight loss is not required for this goal.
+
+Follow the visual timer with warm-up, activity, recovery and cool-down. Explore 37 illustrated movements with written cues. Optional spoken exercise names use your device's browser voice service; optional video demonstrations need internet. Availability varies by device.
 
 Review actual logged workout and walking minutes, your activity calendar, streak and duration graph. Optional rough energy estimates are available only for adults aged 19–59 after explicitly enabling them and entering age, body mass and effort. Estimates include rest, may overestimate activity and are not measured by a device or a prediction of weight change.
 
@@ -22,7 +24,7 @@ Set a training reminder time and days. Browser alerts require an open app. Expor
 
 Your profile, favorites, routines and progress stay in this browser on your device. No account is required. Core workouts and local tracking work offline after caching completes. Export a backup before changing devices, browsers or clearing local storage. Backups are plain files; imported calendar events must be managed separately in your calendar.
 
-FORM provides general fitness guidance for ages 16 and older; weight-loss targets are intended only for adults. It is not a medical device and does not diagnose, treat, cure, or prevent any medical condition. Consult a healthcare professional for medical advice, diagnosis, or treatment, and before starting if you have an injury, condition, or other concern. Exercise targets are personal goals; outcomes are not guaranteed.
+FORM provides general fitness guidance for ages 16 and older; weight-loss targets, the Curves goal and body-measurement controls are intended only for adults. It is not a medical device and does not diagnose, treat, cure, or prevent any medical condition. Consult a healthcare professional for medical advice, diagnosis, or treatment, and before starting if you have an injury, condition, or other concern. Exercise targets are personal goals; outcomes are not guaranteed.
 
 **Category:** Health & Fitness (draft).
 
@@ -37,11 +39,12 @@ The medical disclaimer reflects Google's [Health Content and Services policy](ht
 | Form/topic | Evidence to review in the final release |
 | --- | --- |
 | Health apps declaration | Activity and Fitness applies to guided exercise and workout logs. Declare additional categories only if the final product actually offers them; choosing a weight-related fitness goal is not a reviewed nutrition or treatment service. |
-| Target audience | The app includes a 16–17 age group and adult age groups; weight-loss targets are for adults only. Broad experience levels and goals do not establish suitability for younger children, pregnancy, injury recovery, or clinical populations. Owner must set the actual distribution age groups, assess requirements for minors, and complete content rating. |
+| Target audience | The app includes a 16–17 age group and adult age groups; weight-loss targets, the Curves goal and measurement controls are for adults only. Broad experience levels and goals do not establish suitability for younger children, pregnancy, injury recovery or clinical populations. Owner must set the actual distribution age groups, assess requirements for minors and complete content rating. |
 | App access | This version has no login or paid areas. Provide Play reviewers the public URL and explain local-only onboarding. |
 | Ads | The app includes no advertising SDK or developer ad placements. Linked/embedded third-party video services can show their own content and must be assessed separately. |
 | Permissions | No camera, microphone, location, Health Connect or body-sensor access is used. Optional browser foreground alerts ask for notification permission; the prepared TWA keeps native notification delegation off and provides no background push. Calendar export downloads a file for user import rather than requesting system-calendar access. Browser screen wake lock is optional. Confirm the generated Android manifest and device permission flow. |
-| Local profile and health-related entries | Goal preferences, age group, safety/restriction answers, effort/soreness/difficulty ratings, activity records, assessments, optional measurements and energy-estimate settings/input snapshots remain in unencrypted browser `localStorage`; they are not uploaded by FORM. Favorites, custom routine names/intervals, the active program and reminder settings/last occurrence are local too. |
+| Local profile and health-related entries | Goal preferences, age group, safety/restriction answers, effort/soreness/difficulty ratings, activity records, assessments, optional weight/waist/hip measurements and energy-estimate settings/input snapshots remain in unencrypted browser `localStorage`; they are not uploaded by FORM. Waist/hip entries are dated and do not require weight. Favorites, custom routine names/intervals, the active program and reminder settings/last occurrence are local too. |
+| Appearance-related fitness guidance | Adult Curves & glute development is general strength training with optional entered measurement trends. Manual glute-repetition assessments measure strength practice only; no sensor measurement, ideal body ratio, hourglass score, spot-fat reduction or guaranteed shape is claimed. General food/protein/recovery education does not provide individualized dietary treatment. Review the actual health declaration categories against this educational content. |
 | Energy estimates | Disabled by default and explicitly enabled for ages 19–59 only. Age, mass and generic effort factor are used with elapsed session time including rest. Retained figures are rough gross estimates, not sensor data or a clinical assessment. State this limitation wherever kcal totals appear. |
 | Export/restore | A plain JSON backup is generated only on explicit user action and includes saved records and preferences. Users control subsequent transfers. Restore reads the selected file locally. |
 | Calendar reminders | Explicit export creates a plain .ics file containing optional profile name, schedule, program/plan dates, duration and calendar alarms. The user chooses the calendar app/import. Review user-initiated transfer rules and the calendar provider's storage/sync behavior; FORM has no calendar server or closed-app delivery service. |

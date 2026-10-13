@@ -267,3 +267,28 @@ test('routine and program identifiers reject trailing line breaks and custom rou
   assert.throws(()=>validateCustomRoutine({...routine,movements:[...movements,movements[0]]}),/custom routine is invalid/);
   assert.equal(validDate('2026-10-12\n'),false);
 });
+test('optional waist and hip measurements round trip without requiring or replacing body weight',()=>{
+  const state=freshState('2026-10-12');Object.assign(state.profile,{goalType:'curves',targetValue:null,targetUnit:'reps'});
+  state.bodyMeasurements=[{date:'2026-10-12',waist:81.5,hips:105},{date:'2026-10-13',waist:81},{date:'2026-10-14',hips:106}];state.weights=[{date:'2026-10-12',weight:80,waist:82}];
+  assert.equal(state.profile.startWeight,null);assert.deepEqual(validateState(JSON.parse(JSON.stringify(state))),state);assert.equal(validateState(state).version,4);
+  const withoutWeight={...state,weights:[]};assert.deepEqual(validateState(withoutWeight),withoutWeight);
+  const optionalTarget={...state,profile:{...state.profile}};delete optionalTarget.profile.targetValue;delete optionalTarget.profile.targetUnit;
+  assert.equal(validateState(optionalTarget).profile.targetValue,null);assert.equal(validateState(optionalTarget).profile.targetUnit,'reps');
+  const teen={...state,profile:{...state.profile,goalType:'strength',ageBand:'teen',targetValue:null}};assert.deepEqual(validateState(teen).bodyMeasurements,state.bodyMeasurements);assert.deepEqual(validateState(teen).weights,state.weights);
+  assert.throws(()=>validateState({...state,profile:{...state.profile,ageBand:'teen'}}),/teen profile/);
+});
+test('body measurements use realistic bounds and reject empty, malformed or duplicate records',()=>{
+  const state=freshState('2026-10-12');state.bodyMeasurements=[{date:'2026-10-12',waist:80,hips:100}];
+  for(const bodyMeasurements of [null,{},[null],[[]],[{date:'2026-10-12'}],[{date:'2026-02-30',waist:80}],[{date:'2026-10-12\n',hips:100}]])assert.throws(()=>validateState({...state,bodyMeasurements}));
+  for(const waist of [29.9,250.1,null,NaN,Infinity,'80'])assert.throws(()=>validateState({...state,bodyMeasurements:[{date:'2026-10-12',waist,hips:100}]}),/waist measurement/);
+  for(const hips of [39.9,300.1,null,NaN,Infinity,'100'])assert.throws(()=>validateState({...state,bodyMeasurements:[{date:'2026-10-12',waist:80,hips}]}),/hips measurement/);
+  assert.deepEqual(validateState({...state,bodyMeasurements:[{date:'2026-10-12',waist:30,hips:40},{date:'2026-10-13',waist:250,hips:300}]}).bodyMeasurements,[{date:'2026-10-12',waist:30,hips:40},{date:'2026-10-13',waist:250,hips:300}]);
+  assert.throws(()=>validateState({...state,bodyMeasurements:[...state.bodyMeasurements,{date:'2026-10-12',hips:101}]}),/more than one body measurement/);assert.deepEqual(state.bodyMeasurements,[{date:'2026-10-12',waist:80,hips:100}]);
+});
+test('all supported backup versions gain independent measurement storage without changing legacy measurements',()=>{
+  for(const version of [1,2,3,4]){
+    const state=version<3?legacyState(version):{...freshState('2026-10-12'),version};delete state.bodyMeasurements;state.weights=[{date:'2026-10-12',weight:90,waist:95}];
+    const restored=validateState(state);assert.deepEqual(restored.bodyMeasurements,[]);assert.deepEqual(restored.weights,state.weights);assert.equal(restored.version,4);assert.equal(state.bodyMeasurements,undefined);
+  }
+  const state=freshState('2026-10-12');state.workouts=[{id:'curves-history',date:'2026-10-12',session:'personalized',seconds:600,skipped:0,goalType:'curves'}];state.assessments=[{date:'2026-10-12',value:12,goalType:'curves',unit:'reps'}];assert.deepEqual(validateState(state),state);
+});

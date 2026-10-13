@@ -10,7 +10,7 @@ const profile=changes=>({startDate:'2026-10-13',durationWeeks:8,experience:'adva
 const total=session=>session.steps.reduce((sum,step)=>sum+step.duration,0);
 const workTime=session=>session.steps.filter(step=>step.type==='work').reduce((sum,step)=>sum+step.duration,0);
 
-test('catalog covers all advertised body areas and styles with authored routines and four-week programs',()=>{
+test('catalog covers all advertised body areas and styles with authored routines and flexible program templates',()=>{
   assert.deepEqual(BODY_AREAS.map(area=>area.id),['full','abs','chest','arms','core','back','glutes','legs']);
   assert.deepEqual(STYLES.map(style=>style.id),['strength','cardio','hiit','calisthenics','weight','warmup','stretch','recovery']);
   assert.ok(ROUTINES.length>=18);
@@ -21,7 +21,8 @@ test('catalog covers all advertised body areas and styles with authored routines
   assert.ok(PROGRAMS.length>=4);
   assert.ok(PROGRAMS.some(program=>program.id==='pushup-challenge'&&program.challenge));
   for(const program of PROGRAMS){
-    assert.equal(program.weeks,4);
+    assert.equal(program.weeks,program.durationWeeks);
+    assert.ok([4,8].includes(program.weeks));
     assert.ok(ROUTINES.some(routine=>routine.id===program.routineId));
     assert.equal(program.schedule.length,3);
     assert.ok(program.schedule.every((day,index)=>!index||day.day-program.schedule[index-1].day>=2));
@@ -41,7 +42,7 @@ test('every catalog routine produces exact duration and a timer-valid descriptor
     assert.equal(session.steps.at(-1).type,'cooldown');
     assert.doesNotThrow(()=>validateSessionDescriptor(session));
     assert.equal(sessionAllowed(profile(),session.steps),true);
-    if(routine.area!=='full')assert.ok(session.steps.filter(step=>step.type==='work').every(step=>EXERCISES[step.exercise].bodyAreas.includes(routine.area)));
+    if(routine.area!=='full')assert.ok(session.steps.filter(step=>step.type==='work').every(step=>[routine.area,...(routine.secondaryAreas??[])].some(area=>EXERCISES[step.exercise].bodyAreas.includes(area))));
   }
 });
 
@@ -134,7 +135,7 @@ test('custom routines reject markup, invalid intervals, excluded choices and exc
 test('original illustrations cover every movement with native pose animation and reduced-motion handling',async()=>{
   const css=await readFile(new URL('../dist/movement.css',import.meta.url),'utf8');
   assert.match(css,/prefers-reduced-motion/);
-  assert.equal(Object.keys(EXERCISES).length,32);
+  assert.equal(Object.keys(EXERCISES).length,37);
   for(const exercise of Object.values(EXERCISES)){
     const art=movementArt(exercise.art);
     assert.match(art,/<svg/);
@@ -146,4 +147,50 @@ test('original illustrations cover every movement with native pose animation and
   }
   assert.match(movementArt('burpee'),/pose-4-3/);
   assert.match(movementArt('pushup'),/pose-2-1/);
+});
+
+test('Curves templates offer floor and supported standing variants with a flexible eight-week default',()=>{
+  const template=PROGRAMS.find(program=>program.id==='curves-eight');
+  assert.equal(template.weeks,8);
+  assert.equal(template.durationWeeks,8);
+  assert.deepEqual(template.suggestedWeeks,[6,8,12]);
+  assert.deepEqual(template.routineOptions,['curves-floor-start','curves-standing-start','glutes-progressive']);
+  assert.match(template.assessment,/strength proxy, not a silhouette score/);
+  const p=profile({experience:'beginner',equipment:['none'],goalType:'curves'});
+  const floor=catalogSession(p,'curves-floor-start');
+  assert.equal(total(floor),1200);
+  assert.match(floor.description,/Record actual reps and sets yourself/);
+  assert.match(floor.description,/cannot spot-reduce belly fat.*Genetics and body composition/);
+  assert.ok(floor.steps.filter(step=>step.type==='work').some(step=>EXERCISES[step.exercise].bodyAreas.includes('glutes')));
+  assert.ok(floor.steps.filter(step=>step.type==='work').some(step=>EXERCISES[step.exercise].bodyAreas.includes('core')));
+  const standingProfile={...p,equipment:['chair'],restrictions:['no-floor']};
+  const standing=catalogSession(standingProfile,'curves-standing-start');
+  assert.ok(standing.steps.every(step=>!EXERCISES[step.exercise].floor));
+  assert.equal(routineAvailability(standingProfile,'curves-floor-start').available,false);
+  assert.equal(routineAvailability(standingProfile,'curves-standing-start').available,true);
+  for(const id of ['curves-floor-start','curves-standing-start','glutes-progressive','core-confidence'])assert.ok(ROUTINES.find(routine=>routine.id===id).keywords.includes('curves'));
+});
+
+test('aesthetic Curves routines are blocked for teens while general glute and core strength remains available',()=>{
+  const teen=profile({ageBand:'teen',experience:'beginner',goalType:'strength'});
+  for(const id of ['curves-floor-start','curves-standing-start']){
+    assert.equal(routineAvailability(teen,id).available,false);
+    assert.throws(()=>catalogSession(teen,id),/body-shape routines are for adults/);
+  }
+  assert.equal(routineAvailability(teen,'glutes-start').available,true);
+  assert.equal(routineAvailability(teen,'core-confidence').available,true);
+});
+
+test('new glute movements enforce joint preferences and bilateral windows without added equipment',()=>{
+  const p=profile({goalType:'curves',equipment:['none'],experience:'beginner'});
+  const session=catalogSession(p,'curves-floor-start');
+  for(const id of ['clamshell','sidehipraise','donkeykick']){
+    const steps=session.steps.filter(step=>step.type==='work'&&step.exercise===id);
+    assert.ok(steps.some(step=>/left side/.test(step.label??'')));
+    assert.ok(steps.some(step=>/right side/.test(step.label??'')));
+  }
+  const restricted=catalogSession({...p,restrictions:['wrist','knee']},'curves-floor-start');
+  assert.ok(restricted.steps.every(step=>!['donkeykick','clamshell','standinghipabduction','standinghipextension'].includes(step.exercise)));
+  assert.throws(()=>catalogSession({...p,restrictions:['no-floor']},'curves-floor-start'),/No glutes movements/);
+  assert.throws(()=>catalogSession({...p,equipment:['chair'],restrictions:['knee','wrist','no-floor']},'curves-standing-start'),/No glutes movements/);
 });

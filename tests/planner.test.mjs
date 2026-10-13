@@ -15,7 +15,7 @@ test('inclusive defaults are general fitness with freely chosen dates, days, and
   assert.deepEqual(p.days, [1, 3, 5]);
   assert.equal(p.startWeight, undefined);
   assert.equal(validatePreferences(profile({ targetValue: null })).targetValue, null);
-  assert.deepEqual(Object.keys(GOALS), ['conditioning', 'strength', 'core', 'cardio', 'weight', 'mobility', 'consistency', 'test']);
+  assert.deepEqual(Object.keys(GOALS), ['conditioning', 'strength', 'core', 'cardio', 'weight', 'mobility', 'consistency', 'test', 'curves']);
 });
 
 test('preset and custom horizons are calendar based rather than seven fixed months', () => {
@@ -101,11 +101,11 @@ test('age and experience change pacing without changing workouts based on gender
 });
 
 test('source-linked written guides add real variety while preserving all original demonstration videos', () => {
-  assert.equal(Object.keys(EXERCISES).length, 32);
+  assert.equal(Object.keys(EXERCISES).length, 37);
   const videoIds = Object.values(EXERCISES).filter(exercise => exercise.video && !exercise.catalogAddition).map(exercise => exercise.id);
   assert.deepEqual(videoIds, ['chair', 'wall', 'march', 'bridge', 'bird', 'plank', 'deadbug', 'cool']);
   const guides = Object.values(EXERCISES).filter(exercise => !exercise.video);
-  assert.equal(guides.length, 22);
+  assert.equal(guides.length, 27);
   for (const guide of guides) {
     assert.equal(guide.video, null);
     assert.equal(guide.provider, 'Written technique guide');
@@ -278,4 +278,54 @@ test('invalid preferences fail explicitly instead of silently changing the user 
     { targetValue: NaN }, { targetUnit: 'miles' }, { baselineValue: -1 }, { lowImpact: 'yes' }, { coaching: 'harsh' }
   ];
   for (const changes of invalid) assert.throws(() => validatePreferences(profile(changes)), JSON.stringify(changes));
+});
+
+test('Curves is an adult glute-strength goal with optional targets and no body-shape score', () => {
+  const p = validatePreferences(profile({ goalType: 'curves' }));
+  assert.equal(p.targetUnit, 'reps');
+  assert.equal(p.targetValue, null);
+  assert.match(GOALS.curves.description, /cannot spot-reduce.*guarantee/);
+  assert.throws(() => validatePreferences(profile({ goalType: 'curves', ageBand: 'teen' })), /for adults.*strength, core or fitness/);
+  assert.doesNotThrow(() => validatePreferences(profile({ goalType: 'strength', ageBand: 'teen' })));
+  assert.doesNotThrow(() => validatePreferences(profile({ goalType: 'curves', ageBand: 'older' })));
+  const state = { profile: profile({ goalType: 'curves', baselineValue: 5, targetValue: 15 }), workouts: [{ date: '2026-10-13', seconds: 1200, skipped: 0 }], assessments: [], weights: [{ date: '2026-10-13', weight: 70, waist: 80, hips: 100 }] };
+  const unseen = goalProgress(state, '2026-10-14');
+  assert.equal(unseen.current, null);
+  assert.equal(unseen.percent, null);
+  state.assessments.push({ date: '2026-10-13', goalType: 'curves', unit: 'reps', value: 10 });
+  const observed = goalProgress(state, '2026-10-14');
+  assert.equal(observed.label, 'Comfortable glute reps');
+  assert.equal(observed.current, 10);
+  assert.equal(observed.percent, 50);
+  assert.match(observed.source, /strength proxy, not body shape/);
+  assert.match(observed.message, /do not measure hip growth.*hourglass shape/);
+});
+
+test('automatic Curves sessions cover glutes, core and both sides at exact selected durations', () => {
+  for (const experience of ['beginner', 'intermediate', 'advanced']) for (const sessionMinutes of [10, 20, 60]) {
+    const p = profile({ goalType: 'curves', experience, equipment: ['none'], sessionMinutes });
+    const session = recommendedSession(p, 3);
+    assert.equal(session.steps.reduce((sum, step) => sum + step.duration, 0), sessionMinutes * 60);
+    const work = session.steps.filter(step => step.type === 'work');
+    assert.ok(work.some(step => EXERCISES[step.exercise].bodyAreas.includes('glutes')));
+    assert.ok(work.some(step => EXERCISES[step.exercise].bodyAreas.includes('core')));
+    for (const id of new Set(work.filter(step => EXERCISES[step.exercise].bilateral).map(step => step.exercise))) {
+      const left = work.filter(step => step.exercise === id && /left side/.test(step.label ?? ''));
+      const right = work.filter(step => step.exercise === id && /right side/.test(step.label ?? ''));
+      assert.ok(left.length > 0);
+      assert.equal(left.length, right.length);
+    }
+    assert.match(session.description, /timer does not count reps or muscle-building sets/);
+    assert.match(session.description, /greater resistance.*hourglass shape is not guaranteed/);
+  }
+});
+
+test('Curves standing alternatives honor no-floor and fail rather than substitute non-glute activity', () => {
+  const p = profile({ goalType: 'curves', restrictions: ['no-floor'], equipment: ['chair'] });
+  const session = recommendedSession(p);
+  assert.ok(session.steps.every(step => !EXERCISES[step.exercise].floor));
+  assert.ok(session.steps.some(step => ['standinghipabduction', 'standinghipextension'].includes(step.exercise)));
+  assert.throws(() => recommendedSession({ ...p, equipment: ['none'] }), /No glute-strength movements/);
+  const restricted = recommendedSession(profile({ goalType: 'curves', equipment: ['none'], restrictions: ['wrist'] }));
+  assert.ok(restricted.steps.every(step => step.exercise !== 'donkeykick'));
 });

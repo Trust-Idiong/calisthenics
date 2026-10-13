@@ -10,7 +10,8 @@ export const GOALS = Object.freeze({
   weight: { id: 'weight', label: 'Weight management', title: 'Weight management', description: 'Track optional measurements alongside a movement routine.', defaultUnit: 'kg', units: ['kg'], defaultTarget: null },
   mobility: { id: 'mobility', label: 'Comfortable movement', title: 'Comfortable movement', description: 'Practice easy movement and record comfortable mobility minutes.', defaultUnit: 'minutes', units: ['minutes'], defaultTarget: 10 },
   consistency: { id: 'consistency', label: 'Consistency', title: 'Consistency', description: 'Complete the workout days you planned.', defaultUnit: 'sessions', units: ['sessions'], defaultTarget: null },
-  test: { id: 'test', label: 'Personal performance goal', title: 'Personal performance goal', description: 'Prepare for your own goal and record your own assessments.', defaultUnit: 'reps', units: ['reps', 'seconds', 'minutes'], defaultTarget: null }
+  test: { id: 'test', label: 'Personal performance goal', title: 'Personal performance goal', description: 'Prepare for your own goal and record your own assessments.', defaultUnit: 'reps', units: ['reps', 'seconds', 'minutes'], defaultTarget: null },
+  curves: { id: 'curves', label: 'Curves & glute development', title: 'Curves & glute development', description: 'Build glute and core strength. Comfortable glute repetitions track ability, not body shape. Exercise cannot spot-reduce belly fat or guarantee an hourglass figure; genetics and body composition affect appearance.', defaultUnit: 'reps', units: ['reps'], defaultTarget: null }
 });
 
 const MOVEMENTS = Object.keys(EXERCISES);
@@ -58,6 +59,7 @@ export function validatePreferences(profile = {}, today = localDate()) {
   if (!['beginner', 'intermediate', 'advanced'].includes(p.experience)) throw new Error('Choose a training experience level.');
   p.ageBand = p.ageBand ?? 'adult';
   if (!['teen', 'adult', 'older'].includes(p.ageBand)) throw new Error('Choose an age group.');
+  if (p.goalType === 'curves' && p.ageBand === 'teen') throw new Error('Curves and body-shape goals are for adults. Choose a strength, core or fitness goal for teens.');
   p.coaching = p.coaching ?? 'supportive';
   if (!['supportive', 'quiet'].includes(p.coaching)) throw new Error('Choose a coaching style.');
   p.lowImpact = p.lowImpact ?? true;
@@ -165,7 +167,8 @@ const priorities = {
   weight: ['march', 'chair', 'wall', 'bridge', 'plank', 'bird', 'deadbug'],
   mobility: ['march', 'cool', 'chair', 'bridge', 'bird', 'wall', 'plank'],
   consistency: ['chair', 'wall', 'march', 'bridge', 'plank', 'bird', 'deadbug'],
-  test: ['chair', 'wall', 'plank', 'march', 'bridge', 'bird', 'deadbug']
+  test: ['chair', 'wall', 'plank', 'march', 'bridge', 'bird', 'deadbug'],
+  curves: ['bridge', 'deadbug', 'clamshell', 'sidehipraise', 'donkeykick', 'standinghipabduction', 'standinghipextension', 'chair', 'plank', 'bird']
 };
 
 const progressions = {
@@ -176,7 +179,8 @@ const progressions = {
     cardio: ['stepjack', 'march', 'squat', 'reverselunge', 'calfraise', 'seatedmarch'],
     weight: ['stepjack', 'squat', 'kneepushup', 'march', 'bridge', 'forearmplank'],
     consistency: ['squat', 'kneepushup', 'stepjack', 'bridge', 'forearmplank', 'reverselunge'],
-    test: ['squat', 'kneepushup', 'forearmplank', 'reverselunge', 'bridge', 'march']
+    test: ['squat', 'kneepushup', 'forearmplank', 'reverselunge', 'bridge', 'march'],
+    curves: ['bridge', 'squat', 'deadbug', 'reverselunge', 'sidehipraise', 'donkeykick', 'clamshell']
   },
   advanced: {
     conditioning: ['jumpingjack', 'pushup', 'squat', 'reverselunge', 'forearmplank', 'sideplank', 'stepjack'],
@@ -185,7 +189,8 @@ const progressions = {
     cardio: ['jumpingjack', 'stepjack', 'squat', 'march', 'reverselunge', 'calfraise'],
     weight: ['jumpingjack', 'squat', 'pushup', 'reverselunge', 'stepjack', 'forearmplank'],
     consistency: ['pushup', 'squat', 'reverselunge', 'stepjack', 'forearmplank', 'sideplank'],
-    test: ['pushup', 'squat', 'forearmplank', 'reverselunge', 'sideplank', 'march']
+    test: ['pushup', 'squat', 'forearmplank', 'reverselunge', 'sideplank', 'march'],
+    curves: ['squat', 'reverselunge', 'bridge', 'sidehipraise', 'sideplank', 'donkeykick', 'deadbug', 'clamshell']
   }
 };
 const easyMovements = ['march', 'cool', 'anklepump', 'seatedmarch', 'calfstretch', 'calfraise', 'wall', 'chair', 'plank', 'bridge', 'deadbug', 'bird'];
@@ -206,6 +211,7 @@ export function recommendedSession(profile, week = 1, options = {}) {
   const warmExercise = allowed.includes('march') ? 'march' : gentle;
   const coolExercise = allowed.includes('cool') ? 'cool' : gentle;
   const candidates = priorityFor(p, recovery).filter(id => allowed.includes(id));
+  if (p.goalType === 'curves' && !recovery && !candidates.some(id => EXERCISES[id].bodyAreas?.includes('glutes'))) throw new Error('No glute-strength movements match these preferences. Choose an available strength or mobility goal, or review your equipment and movement choices.');
   // When knee preferences remove walking, use a permitted movement with short,
   // gentle efforts and long breaks. Excluded exercises never become fallbacks.
   const selected = (candidates.length ? candidates : [gentle]).slice(0, p.experience === 'beginner' ? 4 : 6);
@@ -216,6 +222,7 @@ export function recommendedSession(profile, week = 1, options = {}) {
   let rest = Math.max(20, 60 - work);
   if (p.ageBand === 'older') rest = Math.max(rest, 40);
   if (p.ageBand === 'teen') rest = Math.max(rest, 35);
+  if (p.goalType === 'curves') rest = Math.max(rest, 45);
   if (isLighter) { work = Math.max(15, work - 10); rest += 10; }
   if (recovery) { work = 20; rest = p.ageBand === 'older' ? 45 : 40; }
   const total = p.sessionMinutes * 60;
@@ -227,12 +234,12 @@ export function recommendedSession(profile, week = 1, options = {}) {
   while (budget >= work + rest) {
     const exercise = selected[index % selected.length];
     const round = Math.floor(index / selected.length) + 1;
-    if (exercise === 'sideplank') {
+    if (EXERCISES[exercise].bilateral) {
       // Both sides fit inside one work allocation, with a transition from its rest
       // allocation. A short session cannot accidentally train only one side.
-      steps.push({ type: 'work', exercise, duration: Math.floor(work / 2), round, label: 'Side plank · left side; short holds' });
+      steps.push({ type: 'work', exercise, duration: Math.floor(work / 2), round, label: `${EXERCISES[exercise].name} · left side` });
       steps.push({ type: 'rest', exercise, duration: 5, round, label: 'Lower gently and change sides' });
-      steps.push({ type: 'work', exercise, duration: Math.ceil(work / 2), round, label: 'Side plank · right side; short holds' });
+      steps.push({ type: 'work', exercise, duration: Math.ceil(work / 2), round, label: `${EXERCISES[exercise].name} · right side` });
       steps.push({ type: 'rest', exercise, duration: rest - 5, round, label: p.coaching === 'quiet' ? 'Rest' : 'Rest; breathe normally' });
     } else {
       steps.push({ type: 'work', exercise, duration: work, round, ...(recovery ? { label: 'Easy, comfortable movement' } : {}) });
@@ -244,7 +251,9 @@ export function recommendedSession(profile, week = 1, options = {}) {
   // Unused seconds extend the cool-down rather than creating a rushed final set.
   steps.push({ type: 'cooldown', exercise: coolExercise, duration: cool + budget, label: p.coaching === 'quiet' ? 'Cool down' : 'Slow down; let your breathing settle', round: 0 });
   const title = recovery ? 'Easy movement & recovery' : `${GOALS[p.goalType].label} · week ${week}`;
-  return { id: 'personalized', title, minutes: p.sessionMinutes, steps, recovery, level: p.experience, phase: phaseFor(p, week), description: recovery ? 'Keep every effort easy. Pause whenever you need; this supports recovery and is not rehabilitation.' : 'Use controlled movement and stop before form slips. Timed windows allow breaks; they are not continuous hold requirements.' };
+  const description = recovery ? 'Keep every effort easy. Pause whenever you need; this supports recovery and is not rehabilitation.' : 'Use controlled movement and stop before form slips. Timed windows allow breaks; they are not continuous hold requirements.';
+  const curvesGuidance = p.goalType === 'curves' ? ' Build repetitions or a set gradually when current work is comfortable and you are recovered. Record actual repetitions yourself; the timer does not count reps or muscle-building sets. Bodyweight practice is a starting point; further muscle growth may need progressively greater resistance. Belly fat cannot be spot-reduced and an hourglass shape is not guaranteed.' : '';
+  return { id: 'personalized', title, minutes: p.sessionMinutes, steps, recovery, level: p.experience, phase: phaseFor(p, week), description: description + curvesGuidance };
 }
 
 function feasibilityFor(p) {
@@ -252,7 +261,7 @@ function feasibilityFor(p) {
   const availableMinutes = p.days.length * p.sessionMinutes;
   if (p.targetValue === null) return { status: 'flexible', label: 'Flexible goal', message: 'Build the routine at your own pace. You can add a measurable target later.', blocked: false };
   if (['conditioning', 'cardio'].includes(p.goalType) && p.targetValue > availableMinutes) return { status: 'ambitious', label: 'Extra activity needed', message: `Your sessions provide up to ${availableMinutes} minutes per week. Add comfortable walks or adjust your weekly minute target. Recovery and pauses can lower actual active time.`, blocked: false };
-  if (['strength', 'core', 'test', 'mobility'].includes(p.goalType) && weeks <= 4 && (p.baselineValue === 0 || Math.abs(p.targetValue - p.baselineValue) > p.baselineValue * 0.5)) return { status: 'ambitious', label: 'Ambitious timeframe', message: 'This short timeframe may be ambitious. Assess comfortable progress and adjust the date or target; results are not guaranteed.', blocked: false };
+  if (['strength', 'core', 'test', 'mobility', 'curves'].includes(p.goalType) && weeks <= 4 && (p.baselineValue === 0 || Math.abs(p.targetValue - p.baselineValue) > p.baselineValue * 0.5)) return { status: 'ambitious', label: 'Ambitious timeframe', message: 'This short timeframe may be ambitious. Assess comfortable progress and adjust the date or target; results are not guaranteed.', blocked: false };
   return { status: 'steady', label: 'Review as you go', message: 'The schedule builds practice gradually. Use your own logged progress to decide when to adjust it.', blocked: false };
 }
 
@@ -323,6 +332,7 @@ export function goalProgress(state, today = localDate()) {
   } else {
     const readings = (state.assessments ?? []).filter(item => item && validDate(item.date) && item.date <= today && Number.isFinite(item.value) && item.value >= 0 && (!item.goalType || item.goalType === p.goalType) && (!item.unit || item.unit === p.targetUnit)).sort((a, b) => a.date.localeCompare(b.date));
     if (readings.length) { current = readings.at(-1).value; assessed = true; message = 'Your latest manual assessment is shown. Use the same comfortable assessment each time; maximal effort is optional and is never required.'; }
+    if (p.goalType === 'curves') { label = 'Comfortable glute reps'; source = 'Manual strength proxy, not body shape'; message = 'Use the same comfortable glute exercise and assessment method each time. These repetitions track movement ability; they do not measure hip growth, a flatter tummy or an hourglass shape. Appearance outcomes vary and belly fat cannot be spot-reduced.'; }
   }
   const target = p.targetValue;
   const hasTarget = target !== null;

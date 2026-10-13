@@ -11,6 +11,8 @@ export const STYLES = Object.freeze([
   {id:'warmup',name:'Warm-up'}, {id:'stretch',name:'Stretching'}, {id:'recovery',name:'Recovery'}
 ]);
 const routine = (id,name,area,style,level,defaultMinutes,movements,description,extra={}) => ({id,name,title:name,area,style,level,defaultMinutes,minutes:defaultMinutes,movements,description,...extra});
+const shapeContext='Exercise cannot spot-reduce belly fat or guarantee an hourglass shape. Genetics and body composition affect appearance.';
+const gluteProgression='Build controlled repetitions or a set gradually on recovered days, stopping before technique slips. Record actual reps and sets yourself; a timed window is not a counted muscle-building set. More muscle growth may eventually need greater resistance; this app currently supplies bodyweight practice.';
 
 // Original app-authored circuits. Source organizations do not endorse these plans.
 export const ROUTINES = Object.freeze([
@@ -34,6 +36,10 @@ export const ROUTINES = Object.freeze([
   routine('back-mobility','Back and shoulder ease','back','stretch','beginner',8,['shoulderroll','pronecobra'],'Gentle shoulder movement and optional supported floor extension, within comfort.'),
   routine('glutes-start','Glutes: gentle foundations','glutes','strength','beginner',10,['bridge','chair','bird'],'Comfortable hip and glute control through supported strength movements.'),
   routine('glutes-control','Glutes: hips and lunges','glutes','strength','intermediate',15,['bridge','reverselunge','squat'],'Bridge, lunge and squat patterns for controlled hip strength.'),
+  routine('curves-floor-start','Curves: glutes and core foundations','glutes','strength','beginner',20,['bridge','deadbug','clamshell','sidehipraise','donkeykick'],'Beginner glute and core strength with no equipment. '+gluteProgression+' '+shapeContext,{adultOnly:true,gluteFocus:true,secondaryAreas:['core'],requiredAreas:['glutes','core'],goalTags:['curves','strength','core'],keywords:['curves','glutes','core','confidence','figure8']}),
+  routine('curves-standing-start','Curves: supported standing glutes','glutes','strength','beginner',15,['standinghipabduction','standinghipextension','chair'],'A stable-chair glute alternative when floor work is unsuitable. Keep the trunk steady during controlled hip movement. '+gluteProgression+' '+shapeContext,{adultOnly:true,gluteFocus:true,requiredAreas:['glutes'],goalTags:['curves','strength'],keywords:['curves','glutes','standing','chair','confidence','figure8']}),
+  routine('glutes-progressive','Glutes: progressive bodyweight strength','glutes','strength','intermediate',25,['bridge','squat','reverselunge','sidehipraise','forearmplank'],'Glute-focused strength with optional core stability for experienced movement practice. '+gluteProgression+' '+shapeContext,{gluteFocus:true,secondaryAreas:['core'],requiredAreas:['glutes'],goalTags:['curves','strength'],keywords:['curves','glutes','core','progression','confidence','figure8']}),
+  routine('core-confidence','Core confidence and control','core','strength','beginner',12,['deadbug','bird','plank','forearmplank'],'Controlled core practice for the Curves & confidence collection. Stronger abs do not remove belly fat from one location or guarantee a flat tummy.',{goalTags:['curves','core'],keywords:['curves','core','abs','confidence','tummy']}),
   routine('legs-start','Legs: supported foundations','legs','strength','beginner',12,['chair','calfraise','march'],'Stable chair movements and gentle standing activity.'),
   routine('legs-no-equipment','Legs: bodyweight control','legs','strength','intermediate',16,['squat','reverselunge','march'],'Comfortable squats and reverse lunges without gym equipment.'),
   routine('cardio-gentle','Gentle cardio rhythm','full','cardio','beginner',10,['march','cool','seatedmarch'],'Easy standing or seated activity; build a manageable rhythm.'),
@@ -56,7 +62,8 @@ export const PROGRAMS = Object.freeze([
   program('pushup-challenge','Four-week push-up practice','pushup-practice','beginner','Practice a suitable push-up variation with recovery days. Log comfortable repetitions yourself; there is no promised repetition increase.',{challenge:true,assessment:'Comfortable repetitions using the same variation and method.'}),
   program('core-four','Four-week core consistency','core-stable','beginner','Repeat controlled core practice and record comfortable assessments if useful.'),
   program('cardio-four','Four-week activity rhythm','cardio-gentle','beginner','Develop a repeatable gentle activity habit with optional walking between sessions.'),
-  program('strength-four','Four-week experienced strength','full-advanced','advanced','Practice experienced bodyweight patterns without maximal-effort tests or guaranteed outcomes.')
+  program('strength-four','Four-week experienced strength','full-advanced','advanced','Practice experienced bodyweight patterns without maximal-effort tests or guaranteed outcomes.'),
+  program('curves-eight','Glutes & core / Curves','curves-floor-start','beginner','An eight-week starting template with floor, supported standing or experienced bodyweight variants. Adjust the timeframe to suit your life; six to twelve weeks is a practice horizon, not a promised result date. '+shapeContext,{weeks:8,durationWeeks:8,suggestedWeeks:[6,8,12],adultOnly:true,routineOptions:['curves-floor-start','curves-standing-start','glutes-progressive'],assessment:'Comfortable glute repetitions using the same exercise and method; a strength proxy, not a silhouette score.'})
 ]);
 
 const ranks = {beginner:0,intermediate:1,advanced:2};
@@ -68,15 +75,18 @@ const noMarkup = (value,label,max=100) => {
 };
 const getRoutine = id => {const found=ROUTINES.find(item=>item.id===id);if(!found)throw new Error('Choose a known workout routine.');return found;};
 function checkRoutine(p,r) {
+  if(p.ageBand==='teen'&&r.adultOnly)throw new Error('Curves and body-shape routines are for adults. Choose a general glute, core or strength routine for teens.');
   if(p.ageBand==='teen'&&r.style==='weight')throw new Error('Weight-management routines are for adults. Choose a fitness, strength or movement routine for teens.');
   if(r.area==='back'&&p.restrictions.includes('back'))throw new Error('Back-focused routines do not match your back-sensitive movement preference. Choose another available area.');
   if(ranks[p.experience]<ranks[r.level])throw new Error(`${r.name} is an ${r.level} routine. Choose a routine matching your current experience; change your level only when it reflects your ability.`);
   if(p.ageBand!=='adult'&&r.level!=='beginner')throw new Error('This routine uses harder variations than the gentle teen or older-adult plan. Choose a foundation, mobility or recovery routine.');
   if(r.impact==='higher'&&(p.lowImpact||p.ageBand!=='adult'))throw new Error('This routine includes jumping and needs an experienced adult choosing higher-impact movement. Choose a low-impact routine instead.');
-  let selected=r.movements.filter(id=>exerciseAllowed(p,id)&&(r.area==='full'||EXERCISES[id].bodyAreas?.includes(r.area)));
+  const targetAreas=[r.area,...(r.secondaryAreas??[])];
+  let selected=r.movements.filter(id=>exerciseAllowed(p,id)&&(r.area==='full'||targetAreas.some(area=>EXERCISES[id].bodyAreas?.includes(area))));
   if(r.singleVariation)selected=selected.slice(0,1);
   if(!selected.length)throw new Error(`No ${r.area==='full'?'routine':BODY_AREAS.find(area=>area.id===r.area)?.name.toLowerCase()} movements in ${r.name} match your equipment and movement preferences. Choose another routine or review your preferences.`);
   if(r.required?.some(id=>!selected.includes(id)))throw new Error(`${r.name} requires movements excluded by your preferences. Choose another routine.`);
+  if(r.requiredAreas?.some(area=>!selected.some(id=>EXERCISES[id].bodyAreas?.includes(area))))throw new Error(`${r.name} needs compatible ${r.requiredAreas.join(' and ')} movements. Choose a suitable standing or body-area alternative.`);
   if(r.area==='full'&&['strength','calisthenics'].includes(r.style)){
     const areas=new Set(selected.flatMap(id=>EXERCISES[id].bodyAreas??[]));
     if(!(['legs','glutes'].some(area=>areas.has(area))&&['arms','chest'].some(area=>areas.has(area))))throw new Error('A balanced full-body circuit does not match these movement choices. Try an available body-area routine instead.');
@@ -125,6 +135,7 @@ export function catalogSession(profile,routineId,opts={}) {
   let rest=recovery?20:60-work;
   if(p.ageBand==='older')rest=Math.max(rest,40);
   if(p.ageBand==='teen')rest=Math.max(rest,35);
+  if(r.gluteFocus)rest=Math.max(rest,60);
   let adaptationReason=opts.feedback===undefined?'Working windows and recovery match your current ability and movement choices.':'Your last session felt manageable; the work and recovery balance stays steady.';
   if(feedback==='hard'){work=Math.max(15,work-10);rest+=15;adaptationReason='Your last session felt hard: shorter working windows and longer recovery, with the same eligible movements.';}
   if(feedback==='easy'&&!recovery){work=Math.min(workCap,work+5);rest=Math.max(p.ageBand==='adult'?20:p.ageBand==='older'?40:35,rest-5);adaptationReason='Your last session felt easy: a small increase in working time within your current level; no harder exercise variation was added.';}
