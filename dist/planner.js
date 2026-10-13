@@ -121,6 +121,7 @@ function eligibleMovements(profile) {
   const levels = { beginner: ['gentle'], intermediate: ['gentle', 'intermediate'], advanced: ['gentle', 'intermediate', 'advanced'] }[level];
   return MOVEMENTS.filter(id => {
     const exercise = EXERCISES[id];
+    if ((exercise.avoid ?? []).some(restriction => profile.restrictions.includes(restriction))) return false;
     if (excluded.has(id) || (profile.restrictions.includes('no-floor') && exercise.floor)) return false;
     if ((exercise.equipment ?? []).some(item => !profile.equipment.includes(item))) return false;
     if (!levels.includes(exercise.level ?? 'gentle')) return false;

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {WorkoutTimer,SESSIONS,sequenceFor,validateSessionDescriptor,formatTime,freshState,validateState,addMonths,validDate,weeklySummary} from '../dist/engine.js';
+import {WorkoutTimer,SESSIONS,sequenceFor,validateSessionDescriptor,validateCustomRoutine,formatTime,freshState,validateState,addMonths,validDate,weeklySummary,activitySummary} from '../dist/engine.js';
 import {EXERCISES} from '../dist/exercises.js';
 
 const legacyState=(version=2)=>({version,profile:{startDate:'2026-10-12',deadline:'2027-05-12',startWeight:null,goalLoss:10},weights:[],workouts:[],walks:[],sound:true});
@@ -63,11 +63,11 @@ test('imported identifiers cannot inject markup into history controls',()=>{
   const state=freshState('2026-10-11');state.walks=[{id:'\" onclick=\"alert(1)',date:'2026-10-11',minutes:10}];const clean=validateState(state);assert.match(clean.walks[0].id,/^[\w.-]+$/);
 });
 test('fresh profiles use a flexible eight-week conditioning plan without a forced weight target',()=>{
-  const s=freshState('2026-10-12');assert.equal(s.version,3);assert.equal(s.profile.goalType,'conditioning');assert.equal(s.profile.goalLoss,0);assert.equal(s.profile.deadline,'2026-12-07');assert.equal(s.profile.startWeight,null);assert.equal(s.profile.targetValue,180);assert.equal(s.profile.targetUnit,'minutes');assert.equal(s.profile.durationWeeks,8);assert.equal(s.profile.trackMeasurements,false);assert.equal(s.profile.safetyAccepted,false);assert.deepEqual(s.assessments,[]);assert.deepEqual(validateState(s),s);
+  const s=freshState('2026-10-12');assert.equal(s.version,4);assert.equal(s.profile.goalType,'conditioning');assert.equal(s.profile.goalLoss,0);assert.equal(s.profile.deadline,'2026-12-07');assert.equal(s.profile.startWeight,null);assert.equal(s.profile.targetValue,180);assert.equal(s.profile.targetUnit,'minutes');assert.equal(s.profile.durationWeeks,8);assert.equal(s.profile.trackMeasurements,false);assert.equal(s.profile.safetyAccepted,false);assert.deepEqual(s.assessments,[]);assert.deepEqual(validateState(s),s);
 });
 test('old default and custom deadlines survive migration with all existing progress',()=>{
   const old={...legacyState(1),sound:false};old.profile.goalLoss=30;old.profile.startWeight=100;old.profile.deadline='2028-02-29';old.weights=[{date:'2026-10-12',weight:99.6}];old.walks=[{id:'walk-old',date:'2026-10-12',minutes:10}];old.workouts=[{id:'workout-old',date:'2026-10-12',session:'foundation',seconds:600,skipped:0}];
-  const updated=validateState(old);assert.equal(updated.version,3);assert.equal(updated.profile.goalLoss,30);assert.equal(updated.profile.deadline,old.profile.deadline);assert.equal(updated.profile.startDate,old.profile.startDate);assert.equal(updated.profile.startWeight,100);assert.equal(updated.profile.goalType,'weight');assert.equal(updated.profile.targetValue,70);assert.equal(updated.profile.targetUnit,'kg');assert.equal(updated.profile.trackMeasurements,true);assert.equal(updated.profile.safetyAccepted,true);assert.deepEqual(updated.weights,old.weights);assert.deepEqual(updated.walks,old.walks);assert.deepEqual(updated.workouts,old.workouts);assert.equal(updated.sound,false);assert.equal(old.profile.goalLoss,30);
+  const updated=validateState(old);assert.equal(updated.version,4);assert.equal(updated.profile.goalLoss,30);assert.equal(updated.profile.deadline,old.profile.deadline);assert.equal(updated.profile.startDate,old.profile.startDate);assert.equal(updated.profile.startWeight,100);assert.equal(updated.profile.goalType,'weight');assert.equal(updated.profile.targetValue,70);assert.equal(updated.profile.targetUnit,'kg');assert.equal(updated.profile.trackMeasurements,true);assert.equal(updated.profile.safetyAccepted,true);assert.deepEqual(updated.weights,old.weights);assert.deepEqual(updated.walks,old.walks);assert.deepEqual(updated.workouts,old.workouts);assert.equal(updated.sound,false);assert.equal(old.profile.goalLoss,30);
 });
 test('custom targets survive migration and migration runs only once',()=>{
   const old=legacyState(1);old.profile.goalLoss=12;assert.equal(validateState(old).profile.goalLoss,12);assert.equal(validateState(old).profile.targetValue,null);
@@ -129,7 +129,7 @@ test('valid v1 and v2 activity identifiers and measurements survive restoration 
     state.workouts=[{id:'6ab7939e-a643-4b4c-8113-516251522e82',date:'2026-10-12',session:'core',seconds:720,skipped:0}];
     state.walks=[{id:'0.123456789',date:'2026-10-12',minutes:15,intensity:'brisk'},{id:'walk_old-2',date:'2026-10-12',minutes:5}];
     state.weights=[{date:'2026-10-12',weight:99.5,waist:105},{date:'2026-10-13',weight:99.4}];
-    const restored=validateState(state);assert.equal(restored.version,3);assert.deepEqual(restored.weights,state.weights);assert.deepEqual(restored.workouts,state.workouts);assert.deepEqual(restored.walks,state.walks);assert.equal(restored.profile.deadline,state.profile.deadline);assert.equal(restored.profile.goalLoss,state.profile.goalLoss);assert.deepEqual(validateState(restored),restored);
+    const restored=validateState(state);assert.equal(restored.version,4);assert.deepEqual(restored.weights,state.weights);assert.deepEqual(restored.workouts,state.workouts);assert.deepEqual(restored.walks,state.walks);assert.equal(restored.profile.deadline,state.profile.deadline);assert.equal(restored.profile.goalLoss,state.profile.goalLoss);assert.deepEqual(validateState(restored),restored);
   }
 });
 
@@ -158,7 +158,7 @@ test('personalized sessions reject unknown movements, injected labels, fractiona
   const timer=new WorkoutTimer();assert.throws(()=>timer.reset('personalized',{...draft,minutes:11}));assert.equal(timer.id,'foundation');assert.equal(timer.total,600);
 });
 
-test('v3 preferences, optional measurements, assessments and personalized workout metadata round trip',()=>{
+test('preferences, optional measurements, assessments and personalized workout metadata round trip',()=>{
   const state=freshState('2026-10-12');Object.assign(state.profile,{name:'Alex & Sam',goalType:'test',targetValue:120,targetUnit:'seconds',baselineValue:30,durationWeeks:12,deadline:'2027-02-03',ageBand:'older',experience:'intermediate',coaching:'quiet',equipment:['wall'],restrictions:['no-floor','knee'],heightCm:170,trackMeasurements:true,safetyAccepted:true});
   state.assessments=[{date:'2026-10-12',value:42,goalType:'test',unit:'seconds',notes:'First assessment <after rest>',time:60}];state.workouts=[{id:'custom-1',date:'2026-10-12',session:'personalized',title:'Core & control <beginner>',goalType:'test',seconds:1200,skipped:1,effort:7,soreness:2}];
   assert.deepEqual(validateState(state),state);const normalized=validateState({...state,profile:{...state.profile,equipment:'none'}});assert.deepEqual(normalized.profile.equipment,['none']);
@@ -196,4 +196,74 @@ test('different assessment goals and units can share a date while exact context 
   assert.throws(()=>validateState({...state,assessments:[...state.assessments,{...state.assessments[0],value:14,notes:'Duplicate context'}]}),/same goal and unit on the same date/);
   assert.throws(()=>validateState({...state,assessments:[...state.assessments,{date:'2026-10-12',value:8}]}),/same goal and unit on the same date/);
   assert.equal(state.assessments.length,5);
+});
+
+const customRoutine=()=>({id:'custom-1',name:'A personal routine',warmup:120,cooldown:120,movements:[{exercise:'chair',work:30,rest:15,rounds:2},{exercise:'wall',work:20,rest:0,rounds:3}]});
+test('v3 migration adds fitness defaults without replacing goals, dates or progress records',()=>{
+  const original=freshState('2026-10-12');original.version=3;delete original.favorites;delete original.customRoutines;delete original.activeProgram;delete original.settings;
+  original.profile.days=[2,4];original.profile.deadline='2027-01-03';original.profile.goalType='core';original.profile.targetUnit='seconds';original.profile.targetValue=60;
+  original.assessments=[{date:'2026-10-12',value:20,goalType:'core',unit:'seconds',notes:'Starting benchmark'}];original.workouts=[{id:'legacy-personal',date:'2026-10-12',session:'personalized',seconds:600,skipped:0,title:'Core session',goalType:'core',effort:6,soreness:1}];
+  const migrated=validateState(original);assert.equal(migrated.version,4);assert.deepEqual(migrated.profile,original.profile);assert.deepEqual(migrated.workouts,original.workouts);assert.deepEqual(migrated.assessments,original.assessments);assert.deepEqual(migrated.settings,{voice:false,reminders:{enabled:false,time:'18:00',days:[2,4],lastNotified:''},energy:{enabled:false,age:null,weight:null,intensity:'light'}});assert.deepEqual(migrated.favorites,[]);assert.deepEqual(migrated.customRoutines,[]);assert.equal(migrated.activeProgram,null);assert.equal(original.settings,undefined);assert.deepEqual(validateState(migrated),migrated);
+});
+test('favorites, custom routines, enrolled program and session provenance survive backups and timers',()=>{
+  const state=freshState('2026-10-12');state.favorites=['full-body-beginner','custom-1'];state.customRoutines=[customRoutine()];state.activeProgram={id:'foundation-4-week',instanceId:'50eabfdd-22a3-4a0b-a6b3-0b3d19937232',routineId:'full-body-beginner',startDate:'2026-10-12',durationWeeks:4};
+  state.settings.voice=true;state.settings.reminders={enabled:true,time:'07:30',days:[2,4],lastNotified:'2026-10-13T07:30'};state.workouts=[{id:'routine-completion',date:'2026-10-13',session:'personalized',title:'My routine',routineId:'custom-1',programId:state.activeProgram.instanceId,difficultyFeedback:'just-right',seconds:390,skipped:0,kcal:25,kcalSource:'manual'}];
+  assert.deepEqual(validateState(JSON.parse(JSON.stringify(state))),state);
+  const descriptor={...personalized(),routineId:'custom-1',programId:state.activeProgram.instanceId,area:'full-body',style:'strength',description:'A routine you created.',adaptationReason:'Wall support respects your chosen preferences.'};
+  const timer=new WorkoutTimer('personalized',()=>0,descriptor);assert.deepEqual(timer.descriptor,descriptor);timer.reset();assert.equal(timer.descriptor.routineId,'custom-1');
+});
+test('new identifiers, collections, routine bounds and settings reject malformed imported data',()=>{
+  const state=freshState('2026-10-12'),routine=customRoutine();
+  for(const favorites of [null,['same','same'],['<img>'],['x'.repeat(101)],Array.from({length:201},(_,i)=>'fav-'+i)])assert.throws(()=>validateState({...state,favorites}),/favorite/);
+  assert.throws(()=>validateState({...state,customRoutines:[routine,{...routine,name:'Duplicate identifier'}]}),/duplicate custom routine/);
+  assert.throws(()=>validateState({...state,customRoutines:null}),/custom routine collection/);
+  assert.throws(()=>validateCustomRoutine({...routine,name:'<script>'}));
+  assert.throws(()=>validateCustomRoutine({...routine,warmup:0}));assert.throws(()=>validateCustomRoutine({...routine,cooldown:601}));
+  for(const change of [{exercise:'unknown'},{work:4},{work:181},{rest:-1},{rest:181},{rounds:0},{rounds:6},{work:30.5}])assert.throws(()=>validateCustomRoutine({...routine,movements:[{...routine.movements[0],...change}]}),/custom routine movement/);
+  assert.throws(()=>validateCustomRoutine({...routine,movements:Array.from({length:30},()=>({exercise:'wall',work:180,rest:180,rounds:5}))}),/one hour/);
+  assert.deepEqual(validateCustomRoutine({id:'default-times',name:'Simple',movements:[{exercise:'wall',work:30,rest:0,rounds:1}]}),{id:'default-times',name:'Simple',movements:[{exercise:'wall',work:30,rest:0,rounds:1}],warmup:120,cooldown:120});
+  assert.throws(()=>validateState({...state,activeProgram:{id:'valid',instanceId:'<svg>',startDate:'2026-10-12',durationWeeks:4}}),/enrollment identifier/);
+  assert.throws(()=>validateState({...state,activeProgram:{id:'valid',instanceId:'instance',startDate:'2026-02-30',durationWeeks:4}}),/active program/);
+  assert.throws(()=>validateState({...state,settings:null}),/app settings/);assert.throws(()=>validateState({...state,settings:{voice:'yes'}}),/voice preference/);assert.throws(()=>validateState({...state,settings:{voice:null}}),/voice preference/);
+  assert.throws(()=>validateState({...state,settings:{reminders:{time:'25:00',days:[1],enabled:true}}}),/reminder time/);
+  assert.throws(()=>validateState({...state,settings:{reminders:{time:'18:00',days:[1,1],enabled:true}}}),/unique weekday/);
+  assert.throws(()=>validateState({...state,workouts:[{id:'invalid-difficulty',date:'2026-10-12',session:'foundation',seconds:300,skipped:0,difficultyFeedback:'right'}]}),/difficulty rating/);
+  assert.throws(()=>validateSessionDescriptor({...personalized(),routineId:'id\" onclick=\"alert(1)'}),/identifier/);
+});
+test('opt-in energy settings and estimated calorie provenance require age, weight and explicit source',()=>{
+  const state=freshState('2026-10-12'),energy={enabled:true,age:35,weight:85.5,intensity:'moderate'};
+  state.settings.energy=energy;state.workouts=[{id:'estimate-1',date:'2026-10-12',session:'foundation',seconds:300,skipped:0,kcal:28.43,kcalSource:'estimated',kcalWeight:85.5,kcalMET:3.8,kcalAge:35}];assert.deepEqual(validateState(state),state);
+  for(const change of [{age:18},{age:60},{age:35.5},{weight:29},{weight:401},{weight:NaN},{intensity:'unknown'},{enabled:'yes'}])assert.throws(()=>validateState({...state,settings:{...state.settings,energy:{...energy,...change}}}),/Energy estimates/);
+  assert.throws(()=>validateState({...state,profile:{...state.profile,ageBand:'teen'}}),/Energy estimates/);
+  const workout=state.workouts[0];for(const change of [{kcal:10001},{kcal:NaN},{kcal:-1},{kcalSource:'unknown'},{kcalMET:0},{kcalMET:21},{kcalAge:60},{kcalWeight:29},{kcalWeight:undefined}])assert.throws(()=>validateState({...state,workouts:[{...workout,...change}]}));
+  assert.throws(()=>validateState({...state,workouts:[{...workout,kcalSource:'manual'}]}),/Only estimated/);
+});
+test('activity summaries count actual elapsed minutes and unique completed dates without inventing calories',()=>{
+  const state=freshState('2026-10-12');state.workouts=[
+    {id:'old',date:'2026-10-09',session:'foundation',seconds:600,skipped:0},
+    {id:'one',date:'2026-10-10',session:'foundation',seconds:600,skipped:0,kcal:30,kcalSource:'manual'},
+    {id:'same-day',date:'2026-10-10',session:'core',seconds:300,skipped:0},
+    {id:'two',date:'2026-10-11',session:'personalized',seconds:450,skipped:0},
+    {id:'partial',date:'2026-10-12',session:'personalized',seconds:30,skipped:1},
+    {id:'zero',date:'2026-10-12',session:'foundation',seconds:0,skipped:0}
+  ];state.walks=[{id:'walk',date:'2026-10-12',minutes:20}];
+  const result=activitySummary(state,{from:'2026-10-10',to:'2026-10-12',today:'2026-10-12'});
+  assert.equal(result.totalWorkouts,5);assert.equal(result.completedWorkouts,3);assert.equal(result.partialWorkouts,2);assert.equal(result.completedDays,2);assert.equal(result.activeDays,3);assert.equal(result.workoutSeconds,1380);assert.equal(result.minutes,43);assert.equal(result.streak,2);assert.equal(result.longestStreak,2);assert.equal(result.kcal,30);assert.equal(result.hasCalories,true);assert.deepEqual(result.completedDates,['2026-10-10','2026-10-11']);
+  assert.deepEqual(result.calendar[0],{date:'2026-10-10',workouts:2,completed:2,minutes:15,kcal:30,hasCalories:true});assert.equal(activitySummary(state,{today:'2026-10-13'}).streak,0);
+  const noEnergy=activitySummary({...state,workouts:state.workouts.map(({kcal,kcalSource,...workout})=>workout)},{today:'2026-10-12'});assert.equal(noEnergy.hasCalories,false);assert.equal(noEnergy.kcal,0);assert.equal(noEnergy.longestStreak,3);
+});
+test('routine and program identifiers reject trailing line breaks and custom routines honor the 30-movement limit',()=>{
+  const state=freshState('2026-10-12'),routine=customRoutine(),program={id:'foundation-4-week',instanceId:'instance-1',routineId:'custom-1',startDate:'2026-10-12',durationWeeks:4};
+  for(const suffix of ['\n','\r','\r\n','\u2028','\u2029']){
+    assert.throws(()=>validateState({...state,favorites:['favorite'+suffix]}),/favorite/);
+    assert.throws(()=>validateState({...state,customRoutines:[{...routine,id:routine.id+suffix}]}),/custom routine identifier/);
+    for(const field of ['id','instanceId','routineId'])assert.throws(()=>validateState({...state,activeProgram:{...program,[field]:program[field]+suffix}}),/identifier/);
+    for(const field of ['routineId','programId']){
+      assert.throws(()=>validateSessionDescriptor({...personalized(),[field]:'valid'+suffix}),/identifier/);
+      assert.throws(()=>validateState({...state,workouts:[{id:'workout',date:'2026-10-12',session:'foundation',seconds:300,skipped:0,[field]:'valid'+suffix}]}),/identifier/);
+    }
+  }
+  const movements=Array.from({length:30},()=>({exercise:'wall',work:5,rest:0,rounds:1}));assert.equal(validateCustomRoutine({...routine,movements}).movements.length,30);
+  assert.throws(()=>validateCustomRoutine({...routine,movements:[...movements,movements[0]]}),/custom routine is invalid/);
+  assert.equal(validDate('2026-10-12\n'),false);
 });

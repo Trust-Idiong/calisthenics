@@ -2,13 +2,13 @@
   "id": "./",
   "name": "FORM — Calisthenics for your goals",
   "short_name": "FORM",
-  "description": "Flexible bodyweight plans for your goal, ability, available time and timeframe. Training and private progress work offline.",
+  "description": "Home workouts, body-area routines, flexible programs and private progress. Build a calisthenics routine for your goals, ability and schedule.",
   "lang": "en",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#f5f6f1",
-  "theme_color": "#172521",
+  "background_color": "#f8f8fa",
+  "theme_color": "#ffffff",
   "icons": [
     {
       "src": "./assets/icon-192.png",

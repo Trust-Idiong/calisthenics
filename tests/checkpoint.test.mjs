@@ -27,3 +27,9 @@ test('personalized checkpoints reject malformed descriptors and movement substit
  assert.throws(()=>validateCheckpoint({...draft,steps:draft.steps.map((step,i)=>i===0?{...step,duration:120.5}:step)}));
  const restored=new WorkoutTimer('core');assert.throws(()=>restoreCheckpoint(restored,{...draft,descriptor:null}));assert.equal(restored.id,'core');assert.equal(restored.status,'ready');
 });
+test('catalog and program provenance plus adaptation text survive checkpoint recovery',()=>{
+ const descriptor={id:'personalized',title:'Supported strength',minutes:10,routineId:'upper-body-beginner',programId:'06e86d50-c1a4-487f-9239-ec55bc8f5704',area:'arms',style:'strength',description:'A supported upper-body session.',adaptationReason:'Wall support replaces floor movement.',steps:[{type:'warmup',exercise:'march',duration:120,round:0},{type:'work',exercise:'wall',duration:300,round:1},{type:'cooldown',exercise:'cool',duration:180,round:0}]};
+ const timer=new WorkoutTimer('personalized',()=>0,descriptor);timer.start();const draft=checkpointFor(timer);const restored=new WorkoutTimer();restoreCheckpoint(restored,JSON.parse(JSON.stringify(draft)));assert.deepEqual(restored.descriptor,descriptor);
+ assert.throws(()=>validateCheckpoint({...draft,descriptor:{...descriptor,programId:'<script>'}}),/identifier/);
+ assert.throws(()=>validateCheckpoint({...draft,descriptor:{...descriptor,description:'<iframe src=bad>'}}),/description/);
+});

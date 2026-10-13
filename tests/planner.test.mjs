@@ -63,7 +63,7 @@ test('movement and equipment exclusions apply to warm-up, work, rest, and cool-d
   assert.ok(shoulder.steps.every(step => !['wall', 'plank', 'bird'].includes(step.exercise)));
   const back = recommendedSession(profile({ restrictions: ['back'] }));
   assert.ok(back.steps.every(step => !['bridge', 'deadbug'].includes(step.exercise)));
-  assert.throws(() => recommendedSession(profile({ restrictions: ['no-floor', 'knee'], equipment: ['none'] })), /No movements.*match/);
+  assert.throws(() => recommendedSession(profile({ restrictions: ['no-floor', 'knee', 'wrist', 'shoulder', 'back'], equipment: ['none'] })), /No movements.*match/);
 });
 
 test('original quick workouts use the same preference checks as personalized sessions', () => {
@@ -101,15 +101,16 @@ test('age and experience change pacing without changing workouts based on gender
 });
 
 test('source-linked written guides add real variety while preserving all original demonstration videos', () => {
-  assert.equal(Object.keys(EXERCISES).length, 20);
-  const videoIds = Object.values(EXERCISES).filter(exercise => exercise.video).map(exercise => exercise.id);
+  assert.equal(Object.keys(EXERCISES).length, 32);
+  const videoIds = Object.values(EXERCISES).filter(exercise => exercise.video && !exercise.catalogAddition).map(exercise => exercise.id);
   assert.deepEqual(videoIds, ['chair', 'wall', 'march', 'bridge', 'bird', 'plank', 'deadbug', 'cool']);
   const guides = Object.values(EXERCISES).filter(exercise => !exercise.video);
-  assert.equal(guides.length, 12);
+  assert.equal(guides.length, 22);
   for (const guide of guides) {
     assert.equal(guide.video, null);
     assert.equal(guide.provider, 'Written technique guide');
-    assert.match(guide.source, /^https:\/\/(www\.)?(nasm\.org|nhs\.uk|acefitness\.org)\//);
+    const hostname = new URL(guide.source).hostname;
+    assert.ok(['nasm.org','nhs.uk','acefitness.org','eacefitness.com'].some(domain => hostname === domain || hostname.endsWith('.' + domain)));
     assert.ok(guide.description.length > 80 && guide.cues.length === 3);
     assert.ok(['gentle', 'intermediate', 'advanced'].includes(guide.level));
   }

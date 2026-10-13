@@ -1,4 +1,5 @@
 import {EXERCISES} from './exercises.js';
+import {validateReminderPreferences} from './reminders.js';
 
 export const SESSIONS = {
   foundation: { id: 'foundation', title: 'Foundation', minutes: 10, level: 'Start here', warm: 120, cool: 120, work: 30, rest: 30, rounds: 2, exercises: ['chair', 'wall', 'march'], description: 'A gentle, low-impact introduction. A chair, a wall, and a little space are all you need.' },
@@ -10,6 +11,36 @@ const textValue=(value,max,label,{markup=true}={})=>{
   if(typeof value!=='string'||value.length>max||/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(value)||(!markup&&/[<>]/.test(value)))throw new Error(`The ${label} is invalid.`);
   return value;
 };
+const safeIdentifier=value=>typeof value==='string'&&value.length>=1&&value.length<=100&&!/[^-a-zA-Z0-9_.]/.test(value);
+const identifier=(value,label)=>{if(!safeIdentifier(value))throw new Error(`The ${label} identifier is invalid.`);return value;};
+export function validateCustomRoutine(value){
+  if(!value||typeof value!=='object'||Array.isArray(value))throw new Error('A custom routine is invalid.');
+  const id=identifier(value.id,'custom routine'),name=textValue(value.name,120,'custom routine name',{markup:false});
+  const warmup=value.warmup??120,cooldown=value.cooldown??120;
+  if(!name.trim()||!Number.isInteger(warmup)||warmup<1||warmup>600||!Number.isInteger(cooldown)||cooldown<1||cooldown>600||!Array.isArray(value.movements)||value.movements.length<1||value.movements.length>30)throw new Error('A custom routine is invalid.');
+  let total=warmup+cooldown,steps=2;
+  const movements=value.movements.map(movement=>{
+    if(!movement||!Object.hasOwn(EXERCISES,movement.exercise)||!Number.isInteger(movement.work)||movement.work<5||movement.work>180||!Number.isInteger(movement.rest)||movement.rest<0||movement.rest>180||!Number.isInteger(movement.rounds)||movement.rounds<1||movement.rounds>5)throw new Error('A custom routine movement is invalid.');
+    total+=(movement.work+movement.rest)*movement.rounds;steps+=movement.rounds*(movement.rest>0?2:1);
+    return {exercise:movement.exercise,work:movement.work,rest:movement.rest,rounds:movement.rounds};
+  });
+  if(total>3600||steps>500)throw new Error('A custom routine must fit within one hour.');
+  return {id,name,movements,warmup,cooldown};
+}
+export function freshSettings(days=[1,3,5]){
+  return {voice:false,reminders:validateReminderPreferences(undefined,days),energy:{enabled:false,age:null,weight:null,intensity:'light'}};
+}
+function validateSettings(value,profile){
+  if(value===undefined)return freshSettings(profile.days);
+  if(!value||typeof value!=='object'||Array.isArray(value))throw new Error('The app settings are invalid.');
+  const voice=value.voice===undefined?false:value.voice;
+  if(typeof voice!=='boolean')throw new Error('The voice preference is invalid.');
+  const energy=value.energy===undefined?freshSettings(profile.days).energy:value.energy;
+  if(!energy||typeof energy!=='object'||Array.isArray(energy))throw new Error('The energy settings are invalid.');
+  const enabled=energy.enabled===undefined?false:energy.enabled,age=energy.age??null,weight=energy.weight??null,intensity=energy.intensity===undefined?'light':energy.intensity;
+  if(typeof enabled!=='boolean'||!['light','moderate','vigorous'].includes(intensity)||(age!==null&&(!Number.isInteger(age)||age<19||age>59))||(weight!==null&&(!Number.isFinite(weight)||weight<30||weight>400))||(enabled&&(age===null||weight===null||profile.ageBand==='teen')))throw new Error('Energy estimates require an adult age from 19 to 59 and a weight from 30 to 400 kg.');
+  return {voice,reminders:validateReminderPreferences(value.reminders,profile.days),energy:{enabled,age,weight,intensity}};
+}
 export function validateSessionDescriptor(value){
   if(!value||value.id!=='personalized'||!Array.isArray(value.steps)||value.steps.length<3||value.steps.length>500)throw new Error('The personalized session is invalid.');
   const title=textValue(value.title,120,'session title',{markup:false});
@@ -25,7 +56,10 @@ export function validateSessionDescriptor(value){
     return safe;
   });
   if(steps[0].type!=='warmup'||steps.at(-1).type!=='cooldown'||!steps.some(step=>step.type==='work')||total>3600||Math.abs(total-value.minutes*60)>0.000001)throw new Error('The personalized session duration is invalid.');
-  return {id:'personalized',title,minutes:value.minutes,steps};
+  const descriptor={id:'personalized',title,minutes:value.minutes,steps};
+  for(const field of ['routineId','programId'])if(value[field]!==undefined)descriptor[field]=identifier(value[field],field);
+  for(const field of ['area','style','description','adaptationReason'])if(value[field]!==undefined)descriptor[field]=textValue(value[field],['area','style'].includes(field)?80:1000,field,{markup:false});
+  return descriptor;
 }
 export function sequenceFor(id,custom) {
   if(id==='personalized')return validateSessionDescriptor(custom).steps;
@@ -69,12 +103,12 @@ export class WorkoutTimer {
 export function dateKey(d=new Date()){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 export function addMonths(key,months){const d=new Date(key+'T12:00:00');const day=d.getDate();d.setDate(1);d.setMonth(d.getMonth()+months);d.setDate(Math.min(day,new Date(d.getFullYear(),d.getMonth()+1,0).getDate()));return dateKey(d);}
 export function daysBetween(a,b){return Math.round((Date.parse(b+'T12:00:00Z')-Date.parse(a+'T12:00:00Z'))/86400000);}
-export function validDate(s){return typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&!Number.isNaN(Date.parse(s))&&new Date(s+'T12:00:00Z').toISOString().slice(0,10)===s;}
+export function validDate(s){return typeof s==='string'&&s.length===10&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&!Number.isNaN(Date.parse(s))&&new Date(s+'T12:00:00Z').toISOString().slice(0,10)===s;}
 export function formatTime(n){n=Math.max(0,Math.ceil(n));return `${Math.floor(n/60).toString().padStart(2,'0')}:${(n%60).toString().padStart(2,'0')}`;}
 export const DEFAULT_GOAL_KG = 10;
 export function freshState(today=dateKey()){
   const deadline=new Date(today+'T12:00:00');deadline.setDate(deadline.getDate()+56);
-  return {version:3,profile:{startDate:today,deadline:dateKey(deadline),startWeight:null,goalLoss:0,goalType:'conditioning',name:'',experience:'beginner',days:[1,3,5],sessionMinutes:20,durationWeeks:8,targetValue:180,baselineValue:0,targetUnit:'minutes',ageBand:'adult',lowImpact:true,restrictions:[],coaching:'supportive',equipment:['chair','wall'],trackMeasurements:false,safetyAccepted:false},weights:[],workouts:[],walks:[],assessments:[],sound:true};
+  return {version:4,profile:{startDate:today,deadline:dateKey(deadline),startWeight:null,goalLoss:0,goalType:'conditioning',name:'',experience:'beginner',days:[1,3,5],sessionMinutes:20,durationWeeks:8,targetValue:180,baselineValue:0,targetUnit:'minutes',ageBand:'adult',lowImpact:true,restrictions:[],coaching:'supportive',equipment:['chair','wall'],trackMeasurements:false,safetyAccepted:false},weights:[],workouts:[],walks:[],assessments:[],favorites:[],customRoutines:[],activeProgram:null,settings:freshSettings(),sound:true};
 }
 export function weeklySummary(state,start,end){
   const works=state.workouts.filter(w=>w.date>=start&&w.date<=end);
@@ -84,8 +118,29 @@ export function weeklySummary(state,start,end){
   const briskMinutes=walks.filter(w=>w.intensity==='brisk').reduce((n,w)=>n+w.minutes,0);
   return {works,complete,walkMinutes,briskMinutes,strengthDays:new Set(complete.map(w=>w.date)).size,minutes:Math.round(works.reduce((n,w)=>n+w.seconds/60,0)+walkMinutes)};
 }
+export function activitySummary(state,{from='0000-01-01',to='9999-12-31',today=dateKey()}={}){
+  if(!validDate(today)||!validDate(from)||!validDate(to)||from>to)throw new Error('The activity period is invalid.');
+  const workouts=state.workouts.filter(workout=>workout.date>=from&&workout.date<=to),walks=state.walks.filter(walk=>walk.date>=from&&walk.date<=to);
+  const complete=workouts.filter(workout=>workout.skipped===0&&workout.seconds>0),workoutSeconds=workouts.reduce((sum,workout)=>sum+workout.seconds,0),walkMinutes=walks.reduce((sum,walk)=>sum+walk.minutes,0);
+  const completedDates=[...new Set(complete.map(workout=>workout.date))].sort(),activityDates=[...new Set([...workouts.filter(workout=>workout.seconds>0).map(workout=>workout.date),...walks.map(walk=>walk.date)])].sort();
+  let longestStreak=0,run=0,last='';
+  for(const date of completedDates){run=last&&daysBetween(last,date)===1?run+1:1;longestStreak=Math.max(longestStreak,run);last=date;}
+  const anchor=to<today?to:today,lastCompleted=completedDates.filter(date=>date<=anchor).at(-1);
+  let streak=0;
+  if(lastCompleted&&daysBetween(lastCompleted,anchor)<=1){
+    streak=1;let cursor=lastCompleted;
+    for(let index=completedDates.indexOf(lastCompleted)-1;index>=0&&daysBetween(completedDates[index],cursor)===1;index--){streak++;cursor=completedDates[index];}
+  }
+  const buckets=new Map();
+  const bucketFor=date=>{if(!buckets.has(date))buckets.set(date,{date,workouts:0,completed:0,minutes:0,kcal:0,hasCalories:false});return buckets.get(date);};
+  for(const workout of workouts){const bucket=bucketFor(workout.date);bucket.workouts++;if(workout.skipped===0&&workout.seconds>0)bucket.completed++;bucket.minutes+=workout.seconds/60;if(Number.isFinite(workout.kcal)){bucket.kcal+=workout.kcal;bucket.hasCalories=true;}}
+  for(const walk of walks)bucketFor(walk.date).minutes+=walk.minutes;
+  const calendar=activityDates.map(date=>buckets.get(date));
+  const energy=workouts.filter(workout=>Number.isFinite(workout.kcal));
+  return {workouts,complete,walks,total:workouts.length,completed:complete.length,partial:workouts.length-complete.length,totalWorkouts:workouts.length,completedWorkouts:complete.length,partialWorkouts:workouts.length-complete.length,workoutSeconds,workoutMinutes:workoutSeconds/60,walkMinutes,minutes:workoutSeconds/60+walkMinutes,activeDays:activityDates.length,completedDays:completedDates.length,completedDates,activityDates,calendar,streak,longestStreak,kcal:energy.reduce((sum,workout)=>sum+workout.kcal,0),hasCalories:energy.length>0};
+}
 export function validateState(x){
-  if(!x||![1,2,3].includes(x.version)||!x.profile||typeof x.profile!=='object'||Array.isArray(x.profile))throw new Error('This is not a calisthenics app backup.');
+  if(!x||![1,2,3,4].includes(x.version)||!x.profile||typeof x.profile!=='object'||Array.isArray(x.profile))throw new Error('This is not a calisthenics app backup.');
   const p=x.profile;
   const legacy=x.version<3;
   if(!validDate(p.startDate)||!validDate(p.deadline)||daysBetween(p.startDate,p.deadline)<1)throw new Error('The goal dates are invalid.');
@@ -161,6 +216,15 @@ export function validateState(x){
     const entry={date:w.date,session:w.session,seconds:w.seconds,skipped:w.skipped,id:cleanId(w.id)};
     if(w.title!==undefined)entry.title=textValue(w.title,120,'workout title');
     if(w.goalType!==undefined){if(!GOAL_TYPES.includes(w.goalType))throw new Error('A workout goal is invalid.');entry.goalType=w.goalType;}
+    for(const field of ['routineId','programId'])if(w[field]!==undefined)entry[field]=identifier(w[field],field);
+    if(w.difficultyFeedback!==undefined){if(!['easy','just-right','hard'].includes(w.difficultyFeedback))throw new Error('A workout difficulty rating is invalid.');entry.difficultyFeedback=w.difficultyFeedback;}
+    if(w.kcal!==undefined){if(!Number.isFinite(w.kcal)||w.kcal<0||w.kcal>10000)throw new Error('A workout energy value is invalid.');entry.kcal=w.kcal;}
+    if(w.kcalSource!==undefined){if(!['estimated','manual'].includes(w.kcalSource)||w.kcal===undefined)throw new Error('A workout energy source is invalid.');entry.kcalSource=w.kcalSource;}
+    const energyFields=['kcalWeight','kcalMET','kcalAge'];
+    if(w.kcalSource==='estimated'){
+      if(!Number.isFinite(w.kcalWeight)||w.kcalWeight<30||w.kcalWeight>400||!Number.isFinite(w.kcalMET)||w.kcalMET<1||w.kcalMET>20||!Number.isInteger(w.kcalAge)||w.kcalAge<19||w.kcalAge>59)throw new Error('A workout energy estimate is missing valid age, weight or MET inputs.');
+      for(const field of energyFields)entry[field]=w[field];
+    }else if(energyFields.some(field=>w[field]!==undefined))throw new Error('Only estimated energy entries can contain estimation inputs.');
     for(const [field,max] of [['effort',10],['soreness',5]]){
       if(w[field]!==undefined){if(!Number.isInteger(w[field])||w[field]<1||w[field]>max)throw new Error(`A workout ${field} rating is invalid.`);entry[field]=w[field];}
     }
@@ -188,5 +252,19 @@ export function validateState(x){
     if(value.time!==undefined){if(!Number.isFinite(value.time)||value.time<0||value.time>10000)throw new Error('An assessment time is invalid.');entry.time=value.time;}
     return entry;
   });
-  return {version:3,profile,weights,workouts,walks,assessments,sound:x.sound!==false};
+  const favorites=x.favorites===undefined?[]:x.favorites;
+  if(!Array.isArray(favorites)||favorites.length>200||favorites.some(value=>!safeIdentifier(value))||new Set(favorites).size!==favorites.length)throw new Error('The favorite routine identifiers are invalid or duplicated.');
+  const suppliedRoutines=x.customRoutines===undefined?[]:x.customRoutines;
+  if(!Array.isArray(suppliedRoutines)||suppliedRoutines.length>100)throw new Error('The custom routine collection is invalid.');
+  const customRoutines=suppliedRoutines.map(validateCustomRoutine);
+  if(new Set(customRoutines.map(routine=>routine.id)).size!==customRoutines.length)throw new Error('The backup contains duplicate custom routine identifiers.');
+  let activeProgram=null;
+  if(x.activeProgram!==undefined&&x.activeProgram!==null){
+    const program=x.activeProgram;
+    if(!program||typeof program!=='object'||Array.isArray(program)||!validDate(program.startDate)||!Number.isInteger(program.durationWeeks)||program.durationWeeks<1||program.durationWeeks>104)throw new Error('The active program is invalid.');
+    activeProgram={id:identifier(program.id,'program'),instanceId:identifier(program.instanceId,'program enrollment'),startDate:program.startDate,durationWeeks:program.durationWeeks};
+    if(program.routineId!==undefined)activeProgram.routineId=identifier(program.routineId,'program routine');
+  }
+  const settings=validateSettings(x.settings,profile);
+  return {version:4,profile,weights,workouts,walks,assessments,favorites:[...favorites],customRoutines,activeProgram,settings,sound:x.sound!==false};
 }

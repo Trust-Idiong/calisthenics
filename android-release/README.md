@@ -2,6 +2,8 @@
 
 The working product is the PWA. This folder prepares its later Android release through a Trusted Web Activity (TWA): an Android launcher opens the owned HTTPS app through a supporting browser. Google documents this approach and the certificate association it requires in its [TWA quick start](https://developer.chrome.com/docs/android/trusted-web-activity/quick-start).
 
+The October 13, 2026 PWA update adds 33 routines, eight body areas, six flexible program templates, custom routines and favorites, original movement illustrations, optional spoken cues, activity reports, calendar reminders and optional adult energy estimates. These web features do not change the release state below. The draft listing and data inventory reflect these features; verify them against the final Android artifact.
+
 **Release state: source preparation only.** No Android SDK/JDK was available during this preparation. No keystore, real certificate association, APK, signed Android App Bundle (AAB), Play Console app, or Play submission has been created. A config template and passing web checks do not establish Play approval.
 
 ## Identity and hosting
@@ -30,7 +32,7 @@ Run commands from `C:\Users\User\OneDrive\Desktop\JAHMAK\CALLISTENICS`. Bubblewr
 npx --yes --package=@bubblewrap/cli@1.27.0 bubblewrap doctor
 ```
 
-3. Create the ignored Android output directory and initialize from the published manifest. At prompts, use the finalized package ID, FORM name, `/calisthenics/dist/` launch path, and the owner's actual existing keystore/alias. Keep notification/location/billing/analytics integrations disabled for this release.
+3. Create the ignored Android output directory and initialize from the published manifest. At prompts, use the finalized package ID, FORM name, `/calisthenics/dist/` launch path, and the owner's actual existing keystore/alias. Keep native notification delegation, location, billing and analytics integrations disabled for this release. The web app's optional foreground browser alerts and calendar exports do not establish native background scheduling or a server push service.
 
 ```powershell
 New-Item -ItemType Directory -Force -Path '.\android-release\generated\android'
@@ -86,15 +88,15 @@ The generator accepts repeated `--fingerprint` arguments for genuine additional 
 node scripts/android-verify-host.mjs --package YOUR_FINAL_ID --fingerprint ACTUAL_PLAY_APP_SIGNING_SHA256
 ```
 
-This checks public resources and the root association. It does not prove that a particular installed APK has the expected signature. Test an install from the intended Play testing track on a real phone; a visible Chrome toolbar usually indicates failed verification. Confirm launch, back navigation, video consent, offline restart, timer pause/recovery, local deletion, and backup export/restore. TWA data belongs to the supporting browser's origin storage; uninstalling only the Android launcher may leave that browser data intact.
+This checks public resources and the root association. It does not prove that a particular installed APK has the expected signature. Test an install from the intended Play testing track on a real phone; a visible Chrome toolbar usually indicates failed verification. Confirm launch, back navigation, video consent, offline restart, timer pause/recovery, custom routine editing, favorites, program scheduling, report totals, local deletion and backup export/restore. Test speech availability and cancellation and verify that calendar imports deliver alarms under the calendar's own settings. TWA data belongs to the supporting browser's origin storage; uninstalling only the Android launcher may leave that browser data intact. Imported calendar events require separate deletion in the calendar app.
 
 ## Owner actions before a Play submission
 
 - Create/verify the developer account, accept Play agreements, finalize the package ID and signing custody, and configure Play App Signing. No account or keys were supplied for this work.
 - Provide a public support email or other supported contact details for the listing. The app privacy page currently identifies Trust Idiong and links to public repository issues; no private Git email was copied into the app. Provide a suitable private privacy-contact mechanism before store release, and do not ask users to post health records in public issues.
-- Review and approve the actual privacy disclosure, exercise guidance, intended age groups, and store claims. The app includes ages 16–17 and adult groups, with weight-loss targets restricted to adults. Assess the requirements for minors before choosing Play target audience groups. The release is general fitness guidance, with no clinical review or medical-device claim. Adjust these statements if the product changes.
+- Review and approve the actual privacy disclosure, exercise guidance, intended age groups and store claims. The app includes ages 16–17 and adult groups, with weight-loss targets restricted to adults and optional energy estimates restricted to ages 19–59. Estimates use generic self-selected effort and elapsed time including rest; they are not device measurements or weight-change predictions. Assess the requirements for minors before choosing Play target audience groups. The release is general fitness guidance, with no clinical review or medical-device claim. Adjust these statements if the product changes.
 - Complete health, Data safety, content rating, target audience, ads, and app access forms from the final artifact and its real network behavior. See [store-content-draft.md](store-content-draft.md); it provides drafts and evidence, not completed declarations.
-- Supply genuine phone screenshots, the store icon and feature graphic, and test on representative phones, Android versions, screen sizes, text scaling, and accessibility settings. The browser preview is not Android device QA.
+- Supply genuine phone screenshots, the store icon and feature graphic, and test on representative phones, Android versions, screen sizes, text scaling and accessibility settings. Capture the catalog, movement guides, custom routine builder, chosen program schedule, guided timer, reports and Profile controls. Keep estimates labeled and reminder limitations visible. The browser preview is not Android device QA.
 - If this is a personal developer account created after November 13, 2023, Google's [closed testing requirements](https://support.google.com/googleplay/android-developer/answer/14151465) currently require at least 12 testers continuously opted in for 14 days before applying for production access. Check the actual account's requirements.
 
 Run tooling checks with `node --test android-release/tooling.test.mjs`. Passing them validates certificate/configuration handling; it does not build an Android app or certify legal compliance.

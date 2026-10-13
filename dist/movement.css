@@ -1,0 +1,17 @@
+/* Original coordinate pose illustrations. Cycles demonstrate direction, not reps. */
+@keyframes formPose2_0 {0%,49.9%{opacity:1}50%,100%{opacity:0}}
+@keyframes formPose2_1 {0%,49.9%{opacity:0}50%,99.9%{opacity:1}100%{opacity:0}}
+@keyframes formPose4_0 {0%,24.9%{opacity:1}25%,100%{opacity:0}}
+@keyframes formPose4_1 {0%,24.9%{opacity:0}25%,49.9%{opacity:1}50%,100%{opacity:0}}
+@keyframes formPose4_2 {0%,49.9%{opacity:0}50%,74.9%{opacity:1}75%,100%{opacity:0}}
+@keyframes formPose4_3 {0%,74.9%{opacity:0}75%,99.9%{opacity:1}100%{opacity:0}}
+.movement .pose-2-0{animation:formPose2_0 4s linear infinite;opacity:1}
+.movement .pose-2-1{animation:formPose2_1 4s linear infinite;opacity:0}
+.movement .pose-4-0{animation:formPose4_0 8s linear infinite;opacity:1}
+.movement .pose-4-1{animation:formPose4_1 8s linear infinite;opacity:0}
+.movement .pose-4-2{animation:formPose4_2 8s linear infinite;opacity:0}
+.movement .pose-4-3{animation:formPose4_3 8s linear infinite;opacity:0}
+@media(prefers-reduced-motion:reduce){
+  .movement .movement-pose{animation:none!important;opacity:0!important}
+  .movement .movement-pose:first-of-type{opacity:1!important}
+}
