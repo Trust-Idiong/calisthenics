@@ -1,0 +1,17 @@
+{
+  "id": "./",
+  "name": "FORM / SEVEN — Your daily training companion",
+  "short_name": "FORM SEVEN",
+  "description": "Guided calisthenics, your seven-month plan, and a private progress journal. Workouts and logs work offline after your first visit.",
+  "lang": "en",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5f6f1",
+  "theme_color": "#172521",
+  "icons": [
+    { "src": "./assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./assets/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -1,0 +1,30 @@
+#pwa-controls{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px;max-width:100%}
+#pwa-controls:has(.pwa-status){margin:0 0 20px}
+#pwa-controls [hidden],.pwa-dialog [hidden],.recovery-banner[hidden]{display:none!important}
+.recovery-banner{display:flex;flex-wrap:wrap;align-items:center;gap:12px;border:1px solid #dce4d3;border-radius:16px;padding:20px;margin:0 0 20px;background:#eaf0e2;color:#263d2b}
+.recovery-banner>strong{flex-basis:100%;font-size:14px}
+.recovery-banner>p{flex-basis:100%;font-size:13px;color:#526650}
+.recovery-banner>button{min-height:44px;font-size:12px}
+.pwa-status{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:#667468;line-height:1.4}
+.pwa-status::before{content:'';width:6px;height:6px;background:#678b43;border-radius:50%;flex-shrink:0}
+.pwa-status[data-offline=true]::before{background:#9d7839}
+.pwa-action{min-height:40px;padding:8px 13px;border:1px solid #dce4d3;border-radius:99px;background:#fff;color:#273e30;font-size:11px;font-weight:650;white-space:nowrap}
+.pwa-action:hover{background:#edf3e5}
+.pwa-update{background:#d5f575;border-color:#bfdc68}
+.pwa-settings{width:40px;padding:8px;font-size:17px}
+.pwa-action:focus-visible,.pwa-dialog button:focus-visible{outline:3px solid #648e2e;outline-offset:3px}
+.pwa-dialog{width:min(470px,calc(100vw - 32px));border:1px solid #dce4d3;border-radius:22px;padding:27px;color:#1b2a25;background:#fff;box-shadow:0 20px 80px #17252133;max-height:calc(100dvh - 40px);overflow:auto}
+.pwa-dialog::backdrop{background:#17252177}
+.pwa-dialog-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:16px}
+.pwa-dialog h2{font-size:23px;line-height:1.25}
+.pwa-dialog-close{width:40px;height:40px;flex-shrink:0;border-radius:50%;background:#f1f5ed;font-size:24px;line-height:1;display:grid;place-items:center}
+.pwa-dialog p{font-size:13px;line-height:1.65;margin-bottom:14px;color:#657264}
+.pwa-dialog ol{padding-left:23px;margin:15px 0 20px;font-size:14px;line-height:1.65}
+.pwa-dialog li+li{margin-top:8px}
+.pwa-dialog-actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:18px}
+.pwa-dialog-actions button{min-height:44px;border-radius:10px;padding:11px 15px;font-size:12px;font-weight:650;background:#edf3e5;color:#263e30}
+.pwa-dialog-actions .pwa-primary{background:#172521;color:#e6f4d8}
+.pwa-dialog .pwa-storage-note{margin:15px 0 0;font-size:12px}
+.pwa-dialog .pwa-device-note{font-size:12px;margin-top:12px}
+@media(max-width:700px){#pwa-controls{justify-content:flex-start;gap:7px;padding:0 0 3px}.pwa-status{font-size:10px}.pwa-action{min-height:40px;font-size:10px;padding:8px 10px}.pwa-settings{width:40px;padding:8px}.pwa-dialog{padding:22px}.recovery-banner{padding:16px;gap:10px}.recovery-banner>button{flex:1 1 140px}.recovery-banner>p{font-size:12px}}
+@media(prefers-reduced-motion:reduce){.pwa-dialog,.pwa-action{transition:none}}

@@ -1,0 +1,24 @@
+/* Comfortable reading and touch controls for the installed phone app. */
+@media(max-width:600px){
+  .sidebar{height:calc(76px + env(safe-area-inset-bottom,0px));padding-bottom:calc(8px + env(safe-area-inset-bottom,0px))}
+  .app-shell{margin-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
+  .nav-item{font-size:11px;min-height:54px}.nav-item svg{width:22px;height:22px}
+  .topbar{padding-top:env(safe-area-inset-top,0px);height:auto;min-height:64px}.profile-btn{min-height:44px;font-size:13px}
+  .page-heading p,.session-header .muted,.exercise-copy p,.gentle-note p,.goal-banner p,.goal-banner p+p,.plan-intro p,.phase-card p,.phase-card li,.support-grid p,.weekly-goal-grid p,.privacy-bar p,.library-body>p,.library-footer,.form-note,dialog p{font-size:14px;line-height:1.65}
+  .eyebrow,.card .eyebrow,.page-heading .eyebrow,.phase-card .eyebrow,.video-dialog .eyebrow{font-size:10px;line-height:1.6}
+  .segmented button{min-height:52px}.segmented button span{font-size:11px}
+  .cue{font-size:12px;line-height:1.5}.video-launch{font-size:13px;min-height:48px}.video-launch small{font-size:10px}
+  .timer-panel{display:flex;flex-direction:column;align-items:stretch;padding:22px}
+  .timer-ring{width:220px;margin:18px auto}.timer-face>strong{font-size:56px}.timer-face>span{font-size:11px}.timer-face>small{font-size:9px}
+  .timer-controls{display:flex;flex-wrap:nowrap;gap:12px;align-items:center}.start-btn{order:0;flex:1;flex-basis:auto;font-size:15px;min-height:48px}
+  .round-control{min-width:44px;min-height:44px;padding:10px}.round-control svg{width:20px;height:20px}
+  .stopwatch{font-size:13px;margin:18px 0 12px}.stopwatch strong{font-size:15px}.up-next strong{font-size:14px;line-height:1.5}.up-next small{font-size:10px}.up-next{padding:14px;margin-top:16px}
+  .timer-help{font-size:12px;margin-top:14px}.timer-top{font-size:10px}.extra-time-btn{font-size:11px;padding:9px;min-height:40px}
+  .lineup-item strong{font-size:14px}.lineup-item small{font-size:12px}.weekly-metric span{font-size:12px}.text-btn,.outline-btn,.light-btn{font-size:13px;min-height:44px}
+  .metric>span,.metric>small,.rhythm-grid span,.rhythm-grid strong,.sources summary,.goal-card button,.history-row small{font-size:12px;line-height:1.6}
+  .history-row button{min-width:44px;min-height:44px}.filter-group button{font-size:13px;min-height:44px}
+  form input{font-size:16px;min-height:48px}form label{font-size:14px}dialog .close-btn{min-width:44px;min-height:44px}
+  .toast{bottom:calc(90px + env(safe-area-inset-bottom,0px));font-size:13px;line-height:1.5}
+  .page-footer{font-size:10px}.page-footer .text-btn{font-size:12px}.video-meta p,.video-meta a{font-size:13px}.local-video-card>p{font-size:13px}
+}
+@media(max-width:480px){.library-grid{grid-template-columns:1fr}.library-body h2{font-size:20px}.library-body{padding:20px}.library-body .text-btn{font-size:14px}.library-thumb{aspect-ratio:1.7}.library-thumb .subtle-pill{font-size:10px}.thumb-play{width:44px;height:44px}.thumb-play svg{width:18px;height:18px}.form-row{grid-template-columns:1fr}}
