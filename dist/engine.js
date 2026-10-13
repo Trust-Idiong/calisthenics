@@ -108,7 +108,7 @@ export function formatTime(n){n=Math.max(0,Math.ceil(n));return `${Math.floor(n/
 export const DEFAULT_GOAL_KG = 10;
 export function freshState(today=dateKey()){
   const deadline=new Date(today+'T12:00:00');deadline.setDate(deadline.getDate()+56);
-  return {version:4,profile:{startDate:today,deadline:dateKey(deadline),startWeight:null,goalLoss:0,goalType:'conditioning',name:'',experience:'beginner',days:[1,3,5],sessionMinutes:20,durationWeeks:8,targetValue:180,baselineValue:0,targetUnit:'minutes',ageBand:'adult',lowImpact:true,restrictions:[],coaching:'supportive',equipment:['chair','wall'],trackMeasurements:false,safetyAccepted:false},weights:[],bodyMeasurements:[],workouts:[],walks:[],assessments:[],favorites:[],customRoutines:[],activeProgram:null,settings:freshSettings(),sound:true};
+  return {version:4,profile:{startDate:today,deadline:dateKey(deadline),startWeight:null,goalLoss:0,goalType:'conditioning',name:'',experience:'beginner',days:[1,3,5],sessionMinutes:20,durationWeeks:8,targetValue:180,baselineValue:0,targetUnit:'minutes',ageBand:'adult',lowImpact:true,restrictions:[],coaching:'supportive',equipment:['chair','wall'],trackMeasurements:false,safetyAccepted:false,gender:'prefer-not-to-say',motivation:'health',focusAreas:['full'],birthYear:null,location:'home',cardioComfort:null,flexibility:null,feelings:[],reward:'none',onboardingComplete:false},weights:[],bodyMeasurements:[],workouts:[],walks:[],assessments:[],favorites:[],customRoutines:[],activeProgram:null,settings:freshSettings(),sound:true};
 }
 export function weeklySummary(state,start,end){
   const works=state.workouts.filter(w=>w.date>=start&&w.date<=end);
@@ -155,6 +155,20 @@ export function validateState(x){
   for(const [field,allowed] of Object.entries({experience:['beginner','intermediate','advanced'],ageBand:['teen','adult','older'],coaching:['supportive','quiet']})){
     const value=p[field]??defaults[field];if(!allowed.includes(value))throw new Error(`The ${field} preference is invalid.`);profile[field]=value;
   }
+  for(const [field,allowed] of Object.entries({gender:['male','female','other','prefer-not-to-say'],location:['home','gym','outdoors'],reward:['clothes','meal','gift','trip','photos','none']})){
+    const value=p[field]===undefined?defaults[field]:p[field];if(!allowed.includes(value))throw new Error(`The ${field} preference is invalid.`);profile[field]=value;
+  }
+  for(const [field,allowed] of Object.entries({motivation:['tone','confidence','energy','health','stress'],cardioComfort:['out-of-breath','mild','easy'],flexibility:['far','near','touch']})){
+    const value=p[field]===undefined?defaults[field]:p[field];if(value!==null&&!allowed.includes(value))throw new Error(`The ${field} preference is invalid.`);profile[field]=value;
+  }
+  for(const [field,allowed,min] of [['focusAreas',['full','abs','chest','arms','core','back','glutes','legs'],1],['feelings',['confidence','body','achievement','energy','health'],0]]){
+    const values=p[field]===undefined?defaults[field]:p[field];
+    if(!Array.isArray(values)||values.length<min||values.length>allowed.length||values.some(value=>!allowed.includes(value))||new Set(values).size!==values.length)throw new Error(`The ${field} choices are invalid or duplicated.`);
+    profile[field]=[...values];
+  }
+  profile.birthYear=p.birthYear===undefined?null:p.birthYear;
+  const currentYear=new Date().getFullYear();
+  if(profile.birthYear!==null&&(!Number.isInteger(profile.birthYear)||profile.birthYear<currentYear-100||profile.birthYear>currentYear-16))throw new Error('Choose a birth year for an age between 16 and 100, or leave it blank.');
   if(goalType==='curves'&&profile.ageBand==='teen')throw new Error('Choose a strength, movement or consistency goal for a teen profile.');
   const days=p.days??defaults.days;
   if(!Array.isArray(days)||days.length<1||days.length>7||days.some(day=>!Number.isInteger(day)||day<0||day>6)||new Set(days).size!==days.length)throw new Error('The training days are invalid.');
@@ -267,6 +281,8 @@ export function validateState(x){
     if(value.time!==undefined){if(!Number.isFinite(value.time)||value.time<0||value.time>10000)throw new Error('An assessment time is invalid.');entry.time=value.time;}
     return entry;
   });
+  if(p.onboardingComplete!==undefined&&typeof p.onboardingComplete!=='boolean')throw new Error('The onboarding completion preference is invalid.');
+  profile.onboardingComplete=p.onboardingComplete===undefined?(legacy||profile.safetyAccepted||weights.length>0||bodyMeasurements.length>0||workouts.length>0||walks.length>0||assessments.length>0):p.onboardingComplete;
   const favorites=x.favorites===undefined?[]:x.favorites;
   if(!Array.isArray(favorites)||favorites.length>200||favorites.some(value=>!safeIdentifier(value))||new Set(favorites).size!==favorites.length)throw new Error('The favorite routine identifiers are invalid or duplicated.');
   const suppliedRoutines=x.customRoutines===undefined?[]:x.customRoutines;

@@ -15,6 +15,7 @@ export const GOALS = Object.freeze({
 });
 
 const MOVEMENTS = Object.keys(EXERCISES);
+const FOCUS_AREAS = ['full', 'abs', 'chest', 'arms', 'core', 'back', 'glutes', 'legs'];
 const RESTRICTIONS = ['no-floor', 'knee', 'wrist', 'shoulder', 'back'];
 const EXCLUSIONS = {
   'no-floor': ['bridge', 'bird', 'deadbug', 'pushup', 'kneepushup', 'forearmplank', 'sideplank'],
@@ -64,6 +65,13 @@ export function validatePreferences(profile = {}, today = localDate()) {
   if (!['supportive', 'quiet'].includes(p.coaching)) throw new Error('Choose a coaching style.');
   p.lowImpact = p.lowImpact ?? true;
   if (typeof p.lowImpact !== 'boolean') throw new Error('The low-impact preference is invalid.');
+  p.focusAreas = p.focusAreas === undefined ? ['full'] : p.focusAreas;
+  if (!Array.isArray(p.focusAreas) || p.focusAreas.length < 1 || p.focusAreas.length > FOCUS_AREAS.length || p.focusAreas.some(area => !FOCUS_AREAS.includes(area)) || new Set(p.focusAreas).size !== p.focusAreas.length) throw new Error('Choose one or more different focus areas.');
+  p.focusAreas = [...p.focusAreas];
+  for (const [field, choices] of [['cardioComfort', ['out-of-breath', 'mild', 'easy']], ['flexibility', ['far', 'near', 'touch']]]) {
+    p[field] = p[field] === undefined ? null : p[field];
+    if (p[field] !== null && !choices.includes(p[field])) throw new Error(`Choose a supported ${field} answer, or skip it.`);
+  }
   p.days = p.days ?? [1, 3, 5];
   if (!Array.isArray(p.days) || p.days.length < 1 || p.days.length > 7 || p.days.some(d => !Number.isInteger(d) || d < 0 || d > 6) || new Set(p.days).size !== p.days.length) throw new Error('Choose one to seven different training days.');
   p.days = [...p.days].sort((a, b) => a - b);
@@ -194,11 +202,53 @@ const progressions = {
   }
 };
 const easyMovements = ['march', 'cool', 'anklepump', 'seatedmarch', 'calfstretch', 'calfraise', 'wall', 'chair', 'plank', 'bridge', 'deadbug', 'bird'];
+const mobilityMovements = ['anklepump', 'shoulderroll', 'sidebend', 'cheststretch', 'calfstretch', 'hamstringstretch', 'glutestretch', 'quadstretch'];
+const comfortableRangeMovements = ['anklepump', 'shoulderroll', 'sidebend', 'cheststretch'];
 
 function priorityFor(profile, recovery) {
   if (recovery || profile.goalType === 'mobility') return ['anklepump', 'calfstretch', 'seatedmarch', 'march', 'cool', 'calfraise', 'wall', 'bridge'];
   const level = profile.ageBand === 'adult' ? profile.experience : 'beginner';
   return [...new Set([...(progressions[level]?.[profile.goalType] ?? []), ...priorities[profile.goalType], ...easyMovements])];
+}
+
+function selectionFor(profile, candidates, allowed, week, recovery) {
+  const count = profile.experience === 'beginner' ? 4 : 6;
+  // Full-body is the compatibility default. A focus is a preference within the
+  // permitted library, rather than an exclusion or a body-shape prediction.
+  const focus = profile.focusAreas.filter(area => area !== 'full');
+  if (!focus.length) return { selected: candidates.slice(0, count), reason: '' };
+  const additional = recovery ? mobilityMovements : MOVEMENTS.filter(id => !mobilityMovements.includes(id) && id !== 'cool');
+  const pool = [...new Set([...candidates, ...additional])].filter(id => allowed.includes(id));
+  const focused = pool.filter(id => EXERCISES[id].bodyAreas?.some(area => focus.includes(area)));
+  if (!focused.length) return { selected: candidates.slice(0, count), reason: 'Your selected focus areas have no eligible movements here, so the session keeps the available movements for your main goal.' };
+  const offset = (week - 1) % focused.length;
+  const rotation = [...focused.slice(offset), ...focused.slice(0, offset)];
+  const preferred = [];
+  const quota = Math.min(Math.floor(count / 2), focused.length);
+  const areaOffset = (week - 1) % focus.length;
+  const orderedAreas = [...focus.slice(areaOffset), ...focus.slice(0, areaOffset)];
+  for (const area of orderedAreas) {
+    const movement = rotation.find(id => !preferred.includes(id) && EXERCISES[id].bodyAreas?.includes(area));
+    if (movement) preferred.push(movement);
+    if (preferred.length >= quota) break;
+  }
+  for (const movement of rotation) {
+    if (preferred.length >= quota) break;
+    if (!preferred.includes(movement)) preferred.push(movement);
+  }
+  const anchors = candidates.length ? [candidates[0]] : [];
+  const requiredAreas = profile.goalType === 'curves' ? ['glutes', 'core'] : profile.goalType === 'core' ? ['core'] : [];
+  for (const area of requiredAreas) {
+    if (!anchors.some(id => EXERCISES[id].bodyAreas?.includes(area))) {
+      const movement = candidates.find(id => EXERCISES[id].bodyAreas?.includes(area));
+      if (movement) anchors.push(movement);
+    }
+  }
+  if (profile.goalType === 'curves' && anchors.filter(id => EXERCISES[id].bodyAreas?.includes('glutes')).length < 2) {
+    const movement = candidates.find(id => !anchors.includes(id) && EXERCISES[id].bodyAreas?.includes('glutes'));
+    if (movement) anchors.push(movement);
+  }
+  return { selected: [...new Set([...anchors, ...preferred, ...candidates])].slice(0, count), reason: 'Movement variety reflects your selected focus areas while retaining the main training goal. Preferred choices rotate as the weeks progress.' };
 }
 
 /** A complete timed session. Recovery is optional; legacy workouts are untouched. */
@@ -209,12 +259,15 @@ export function recommendedSession(profile, week = 1, options = {}) {
   const recovery = options.recovery === true || p.goalType === 'mobility';
   const gentle = easyMovements.find(id => allowed.includes(id)) ?? allowed[0];
   const warmExercise = allowed.includes('march') ? 'march' : gentle;
-  const coolExercise = allowed.includes('cool') ? 'cool' : gentle;
+  const mobilityChoices = comfortableRangeMovements.filter(id => allowed.includes(id));
+  const supportedRange = p.flexibility === 'far' ? (mobilityChoices.find(id => EXERCISES[id].bodyAreas?.some(area => area !== 'full' && p.focusAreas.includes(area))) ?? mobilityChoices[0]) : undefined;
+  const coolExercise = supportedRange ?? (allowed.includes('cool') ? 'cool' : gentle);
   const candidates = priorityFor(p, recovery).filter(id => allowed.includes(id));
   if (p.goalType === 'curves' && !recovery && !candidates.some(id => EXERCISES[id].bodyAreas?.includes('glutes'))) throw new Error('No glute-strength movements match these preferences. Choose an available strength or mobility goal, or review your equipment and movement choices.');
   // When knee preferences remove walking, use a permitted movement with short,
   // gentle efforts and long breaks. Excluded exercises never become fallbacks.
-  const selected = (candidates.length ? candidates : [gentle]).slice(0, p.experience === 'beginner' ? 4 : 6);
+  const selection = selectionFor(p, candidates.length ? candidates : [gentle], allowed, week, recovery);
+  const selected = selection.selected;
   const isLighter = week % 4 === 0 || (p.goalType === 'test' && week === p.durationWeeks);
   const baseWork = { beginner: 25, intermediate: 35, advanced: 40 }[p.experience];
   const cap = p.ageBand === 'adult' ? 50 : 30;
@@ -223,8 +276,11 @@ export function recommendedSession(profile, week = 1, options = {}) {
   if (p.ageBand === 'older') rest = Math.max(rest, 40);
   if (p.ageBand === 'teen') rest = Math.max(rest, 35);
   if (p.goalType === 'curves') rest = Math.max(rest, 45);
+  const breathingSupport = p.cardioComfort === 'out-of-breath';
+  if (breathingSupport) { work = Math.min(work, 25); rest = Math.max(rest, 45); }
   if (isLighter) { work = Math.max(15, work - 10); rest += 10; }
   if (recovery) { work = 20; rest = p.ageBand === 'older' ? 45 : 40; }
+  if (breathingSupport) rest = Math.max(rest, 45);
   const total = p.sessionMinutes * 60;
   const warm = Math.round(clamp(total * 0.2, 120, 360));
   const cool = Math.round(clamp(total * 0.15, 120, 300));
@@ -253,7 +309,8 @@ export function recommendedSession(profile, week = 1, options = {}) {
   const title = recovery ? 'Easy movement & recovery' : `${GOALS[p.goalType].label} · week ${week}`;
   const description = recovery ? 'Keep every effort easy. Pause whenever you need; this supports recovery and is not rehabilitation.' : 'Use controlled movement and stop before form slips. Timed windows allow breaks; they are not continuous hold requirements.';
   const curvesGuidance = p.goalType === 'curves' ? ' Build repetitions or a set gradually when current work is comfortable and you are recovered. Record actual repetitions yourself; the timer does not count reps or muscle-building sets. Bodyweight practice is a starting point; further muscle growth may need progressively greater resistance. Belly fat cannot be spot-reduced and an hourglass shape is not guaranteed.' : '';
-  return { id: 'personalized', title, minutes: p.sessionMinutes, steps, recovery, level: p.experience, phase: phaseFor(p, week), description: description + curvesGuidance };
+  const adaptations = [selection.reason, breathingSupport ? 'Shorter efforts and longer breaks reflect your chosen cardio comfort; use a pace that feels comfortable.' : '', supportedRange ? 'Your cool-down includes easy mobility in a comfortable range. No toe-touch depth is required.' : ''].filter(Boolean);
+  return { id: 'personalized', title, minutes: p.sessionMinutes, steps, recovery, level: p.experience, phase: phaseFor(p, week), description: description + curvesGuidance + (adaptations.length ? ' ' + adaptations.join(' ') : ''), ...(adaptations.length ? { adaptationReason: adaptations.join(' ') } : {}) };
 }
 
 function feasibilityFor(p) {

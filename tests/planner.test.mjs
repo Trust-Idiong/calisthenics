@@ -329,3 +329,70 @@ test('Curves standing alternatives honor no-floor and fail rather than substitut
   const restricted = recommendedSession(profile({ goalType: 'curves', equipment: ['none'], restrictions: ['wrist'] }));
   assert.ok(restricted.steps.every(step => step.exercise !== 'donkeykick'));
 });
+
+test('full-body defaults preserve existing sessions while specific focus preferences add eligible variety over weeks', () => {
+  const choices = profile({ goalType: 'conditioning', sessionMinutes: 20 });
+  assert.deepEqual(recommendedSession(choices, 1).steps, recommendedSession({ ...choices, focusAreas: ['full'], cardioComfort: null, flexibility: null }, 1).steps);
+  const workIds = session => [...new Set(session.steps.filter(step => step.type === 'work').map(step => step.exercise))];
+  const matching = (ids, area) => ids.filter(id => EXERCISES[id].bodyAreas.includes(area)).length;
+  const baseline = workIds(recommendedSession(choices, 1));
+  const chest = recommendedSession({ ...choices, focusAreas: ['chest'] }, 1),later = recommendedSession({ ...choices, focusAreas: ['chest'] }, 2);
+  assert.ok(matching(workIds(chest), 'chest') > matching(baseline, 'chest'));
+  assert.notDeepEqual(workIds(chest), workIds(later));
+  assert.ok(workIds(chest).some(id => EXERCISES[id].bodyAreas.includes('legs')));
+  assert.match(chest.adaptationReason, /focus areas.*main training goal/);
+  const mixed = workIds(recommendedSession({ ...choices, focusAreas: ['arms', 'glutes'] }, 2));
+  assert.ok(matching(mixed, 'arms') > 0 && matching(mixed, 'glutes') > 0);
+  assert.ok(matching(workIds(recommendedSession({ ...choices, focusAreas: ['full', 'chest'] }, 1)), 'chest') > matching(baseline, 'chest'));
+});
+
+test('focus preferences retain primary core, cardio and glute goals rather than replacing them', () => {
+  const work = options => recommendedSession(profile(options), 2).steps.filter(step => step.type === 'work');
+  assert.ok(work({ goalType: 'core', focusAreas: ['legs'] }).some(step => EXERCISES[step.exercise].bodyAreas.includes('core')));
+  const cardio = work({ goalType: 'cardio', focusAreas: ['abs'] });
+  assert.equal(cardio[0].exercise, 'march');assert.ok(cardio.some(step => EXERCISES[step.exercise].bodyAreas.includes('abs')));
+  for (const experience of ['beginner', 'intermediate', 'advanced']) {
+    const curves = work({ goalType: 'curves', experience, focusAreas: ['arms'] });
+    assert.ok(curves.some(step => EXERCISES[step.exercise].bodyAreas.includes('core')));
+    assert.ok(new Set(curves.filter(step => EXERCISES[step.exercise].bodyAreas.includes('glutes')).map(step => step.exercise)).size >= 2);
+  }
+});
+
+test('unavailable focus choices fall back to allowed goal movements and never override equipment or restrictions', () => {
+  const choices = profile({ focusAreas: ['chest', 'arms'], equipment: ['none'], restrictions: ['no-floor'] });
+  const session = recommendedSession(choices);assert.deepEqual(session.steps, recommendedSession({ ...choices, focusAreas: ['full'] }).steps);assert.match(session.adaptationReason, /no eligible movements/);
+  for (const focusAreas of [['chest'], ['abs', 'core'], ['back'], ['glutes', 'legs']]) for (const restrictions of [['wrist'], ['no-floor'], ['knee'], ['back']]) {
+    const p = profile({ focusAreas, restrictions, experience: 'advanced', equipment: ['wall'] });
+    const focused = recommendedSession(p, 3);validateSessionDescriptor(focused);
+    assert.ok(focused.steps.every(step => exerciseAllowed(p, step.exercise)));
+  }
+  const recovery = recommendedSession(profile({ focusAreas: ['arms'], experience: 'advanced' }), 2, { recovery: true });
+  assert.ok(recovery.steps.filter(step => step.type === 'work').every(step => (EXERCISES[step.exercise].level ?? 'gentle') === 'gentle'));
+});
+
+test('selected breathing comfort reduces effort and preserves longer breaks, lighter weeks and exact session duration', () => {
+  const p = profile({ experience: 'advanced', sessionMinutes: 20 });
+  const totalWork = session => session.steps.filter(step => step.type === 'work').reduce((seconds, step) => seconds + step.duration, 0);
+  const normal = recommendedSession(p, 3),supported = recommendedSession({ ...p, cardioComfort: 'out-of-breath' }, 3),lighter = recommendedSession({ ...p, cardioComfort: 'out-of-breath' }, 4);
+  assert.ok(totalWork(supported) < totalWork(normal));assert.ok(totalWork(lighter) < totalWork(supported));
+  assert.ok(supported.steps.filter(step => step.type === 'work').every(step => step.duration <= 25));
+  const restByAllocation=new Map();for(const step of supported.steps.filter(step=>step.type==='rest')){const key=`${step.round}:${step.exercise}`;restByAllocation.set(key,(restByAllocation.get(key)??0)+step.duration);}assert.ok([...restByAllocation.values()].every(seconds=>seconds>=45));
+  assert.equal(supported.steps.reduce((seconds, step) => seconds + step.duration, 0),1200);assert.match(supported.adaptationReason, /chosen cardio comfort|chosen cardio|cardio comfort/);
+  assert.deepEqual(recommendedSession({ ...p, cardioComfort: 'easy' }, 3).steps,normal.steps);
+  assert.deepEqual(recommendedSession({ ...p, cardioComfort: 'out-of-breath', gender: 'female' }, 3).steps,recommendedSession({ ...p, cardioComfort: 'out-of-breath', gender: 'male' }, 3).steps);
+});
+
+test('far flexibility uses comfortable eligible mobility without demanding a toe-touch or inferred diagnosis', () => {
+  const p = profile({ focusAreas: ['legs'], flexibility: 'far', equipment: ['chair'] });
+  const session = recommendedSession(p);assert.equal(session.steps.at(-1).exercise,'anklepump');assert.match(session.adaptationReason,/comfortable range.*No toe-touch depth/);assert.equal(session.steps.reduce((seconds, step) => seconds + step.duration,0),1200);
+  const restricted = profile({ flexibility: 'far', equipment: ['none'], restrictions: ['shoulder', 'back'] });
+  assert.deepEqual(recommendedSession(restricted).steps,recommendedSession({ ...restricted, flexibility: null }).steps);
+  for (const goalType of Object.keys(GOALS)) for (const sessionMinutes of [10,60]) {
+    const session = recommendedSession(profile({ goalType,sessionMinutes,focusAreas:['glutes','core'],cardioComfort:'out-of-breath',flexibility:'far' }));validateSessionDescriptor(session);assert.equal(session.steps.reduce((seconds, step) => seconds + step.duration,0),sessionMinutes*60);
+  }
+});
+
+test('invalid focus and self-reported comfort answers fail explicitly without silently changing preferences', () => {
+  for (const changes of [{focusAreas:[]},{focusAreas:null},{focusAreas:['arms','arms']},{focusAreas:['<script>']},{cardioComfort:'bad'},{flexibility:'extreme'}])assert.throws(()=>validatePreferences(profile(changes)));
+  const original=profile({focusAreas:['glutes','arms'],cardioComfort:null,flexibility:null});const cleaned=validatePreferences(original);assert.deepEqual(cleaned.focusAreas,original.focusAreas);cleaned.focusAreas.push('core');assert.deepEqual(original.focusAreas,['glutes','arms']);
+});

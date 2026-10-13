@@ -292,3 +292,28 @@ test('all supported backup versions gain independent measurement storage without
   }
   const state=freshState('2026-10-12');state.workouts=[{id:'curves-history',date:'2026-10-12',session:'personalized',seconds:600,skipped:0,goalType:'curves'}];state.assessments=[{date:'2026-10-12',value:12,goalType:'curves',unit:'reps'}];assert.deepEqual(validateState(state),state);
 });
+test('onboarding choices round trip independently of ability, gender, measurements and energy settings',()=>{
+  const state=freshState('2026-10-13');Object.assign(state.profile,{gender:'female',motivation:'confidence',focusAreas:['glutes','core','legs'],birthYear:new Date().getFullYear()-30,location:'gym',cardioComfort:'mild',flexibility:'near',feelings:['confidence','achievement'],reward:'photos',onboardingComplete:true});
+  state.workouts=[{id:'existing-onboarding-workout',date:'2026-10-13',session:'foundation',seconds:600,skipped:0}];state.bodyMeasurements=[{date:'2026-10-13',hips:100}];
+  assert.deepEqual(validateState(JSON.parse(JSON.stringify(state))),state);const swapped=validateState({...state,profile:{...state.profile,gender:'other',motivation:null,cardioComfort:null,flexibility:null}});
+  assert.equal(swapped.profile.experience,state.profile.experience);assert.deepEqual(swapped.settings.energy,state.settings.energy);assert.deepEqual(swapped.workouts,state.workouts);assert.deepEqual(swapped.bodyMeasurements,state.bodyMeasurements);assert.equal(swapped.profile.motivation,null);
+});
+test('fresh onboarding defaults and migrated completion flags preserve established users and explicit restart requests',()=>{
+  const fresh=freshState('2026-10-13');assert.equal(fresh.profile.onboardingComplete,false);assert.equal(fresh.profile.gender,'prefer-not-to-say');assert.equal(fresh.profile.motivation,'health');assert.deepEqual(fresh.profile.focusAreas,['full']);assert.equal(fresh.profile.birthYear,null);assert.equal(fresh.profile.location,'home');assert.equal(fresh.profile.cardioComfort,null);assert.equal(fresh.profile.flexibility,null);assert.deepEqual(fresh.profile.feelings,[]);assert.equal(fresh.profile.reward,'none');
+  const newFields=['gender','motivation','focusAreas','birthYear','location','cardioComfort','flexibility','feelings','reward','onboardingComplete'];
+  for(const version of [1,2,3,4]){
+    const old=version<3?legacyState(version):{...freshState('2026-10-13'),version};for(const field of newFields)delete old.profile[field];old.workouts=[{id:'older-workout',date:'2026-10-13',session:'foundation',seconds:600,skipped:0}];
+    const restored=validateState(old);assert.equal(restored.version,4);assert.equal(restored.profile.onboardingComplete,true);assert.equal(restored.profile.gender,'prefer-not-to-say');assert.deepEqual(restored.workouts,old.workouts);assert.deepEqual(restored.profile.focusAreas,['full']);assert.equal(old.profile.onboardingComplete,undefined);
+    assert.equal(validateState({...old,profile:{...old.profile,onboardingComplete:false}}).profile.onboardingComplete,false);
+  }
+  const ready={...fresh,profile:{...fresh.profile,safetyAccepted:true}};delete ready.profile.onboardingComplete;assert.equal(validateState(ready).profile.onboardingComplete,true);
+});
+test('onboarding enum choices, unique lists, dynamic birth-year boundaries and completion types reject malformed data',()=>{
+  const state=freshState('2026-10-13'),currentYear=new Date().getFullYear();
+  for(const [field,value] of [['gender','<img>'],['gender',null],['motivation','unknown'],['location','office'],['location',null],['cardioComfort','yes'],['flexibility','extreme'],['reward','money'],['reward',null],['onboardingComplete','true'],['onboardingComplete',1],['onboardingComplete',null]])assert.throws(()=>validateState({...state,profile:{...state.profile,[field]:value}}),/invalid/);
+  for(const focusAreas of [[],null,['glutes','glutes'],['<script>'],['full','abs','chest','arms','core','back','glutes','legs','unknown']])assert.throws(()=>validateState({...state,profile:{...state.profile,focusAreas}}),/focusAreas/);
+  for(const feelings of [null,['energy','energy'],['unknown'],['confidence','body','achievement','energy','health','health']])assert.throws(()=>validateState({...state,profile:{...state.profile,feelings}}),/feelings/);
+  for(const birthYear of [currentYear-101,currentYear-15,currentYear-30.5,String(currentYear-30),NaN,Infinity])assert.throws(()=>validateState({...state,profile:{...state.profile,birthYear}}),/birth year/);
+  for(const birthYear of [null,currentYear-100,currentYear-16])assert.equal(validateState({...state,profile:{...state.profile,birthYear}}).profile.birthYear,birthYear);
+  const allChoices=validateState({...state,profile:{...state.profile,focusAreas:['full','abs','chest','arms','core','back','glutes','legs'],feelings:['confidence','body','achievement','energy','health']}});assert.equal(allChoices.profile.focusAreas.length,8);assert.equal(allChoices.profile.feelings.length,5);
+});
