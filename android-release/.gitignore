@@ -1,0 +1,9 @@
+generated/
+*.jks
+*.keystore
+*.aab
+*.apk
+*.pem
+*.p12
+local.properties
+service-account*.json

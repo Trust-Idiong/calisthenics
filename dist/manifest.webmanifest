@@ -1,8 +1,8 @@
 {
   "id": "./",
-  "name": "FORM / SEVEN — Your daily training companion",
-  "short_name": "FORM SEVEN",
-  "description": "Guided calisthenics, your seven-month plan, and a private progress journal. Workouts and logs work offline after your first visit.",
+  "name": "FORM — Calisthenics for your goals",
+  "short_name": "FORM",
+  "description": "Flexible bodyweight plans for your goal, ability, available time and timeframe. Training and private progress work offline.",
   "lang": "en",
   "start_url": "./",
   "scope": "./",
@@ -10,8 +10,28 @@
   "background_color": "#f5f6f1",
   "theme_color": "#172521",
   "icons": [
-    { "src": "./assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "./assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "./assets/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "./assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./assets/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "categories": [
+    "health",
+    "fitness",
+    "lifestyle"
   ]
 }
