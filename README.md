@@ -34,6 +34,8 @@ Open the local URL printed by the server. Serve `dist/` over HTTPS for productio
 
 ## Hosting
 
+**Live phone app:** [Open FORM / SEVEN](https://trust-idiong.github.io/calisthenics/dist/). The shorter [repository Pages address](https://trust-idiong.github.io/calisthenics/) redirects to the app.
+
 The GitHub repository is [Trust-Idiong/calisthenics](https://github.com/Trust-Idiong/calisthenics). `dist/` is the complete static app; `.openai/hosting.json` identifies its Sites deployment. Paths and service-worker scope are relative and also support GitHub Pages at `/calisthenics/`.
 
 To update a deployed PWA, bump `VERSION` in `dist/sw.js`, run all tests, publish the unchanged verified source, and let users accept the update when their workout is finished. Offline updates preserve the progress storage key and backup format.
