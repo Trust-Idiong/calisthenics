@@ -15,7 +15,7 @@ test('inclusive defaults are general fitness with freely chosen dates, days, and
   assert.deepEqual(p.days, [1, 3, 5]);
   assert.equal(p.startWeight, undefined);
   assert.equal(validatePreferences(profile({ targetValue: null })).targetValue, null);
-  assert.deepEqual(Object.keys(GOALS), ['conditioning', 'strength', 'core', 'cardio', 'weight', 'mobility', 'consistency', 'test', 'curves']);
+  assert.deepEqual(Object.keys(GOALS), ['conditioning', 'strength', 'core', 'cardio', 'weight', 'mobility', 'consistency', 'test', 'curves', 'abs']);
 });
 
 test('preset and custom horizons are calendar based rather than seven fixed months', () => {

@@ -1,217 +1,62 @@
 import {AUTH_CONFIG} from './auth-config.js';
-
-// Official modular SDK only; no analytics, Firestore, custom token/password
-// storage or invented cloud sessions. The imports are lazy so the offline
-// workout shell can load with no connection to Firebase.
-// https://firebase.google.com/docs/web/alt-setup
-export const FIREBASE_SDK_VERSION = '13.0.0';
 export class AuthError extends Error {
-  constructor(code, message) { super(message); this.name = 'AuthError'; this.code = code; }
+ constructor(code,message,status=0,details=null){super(message);this.name='AuthError';this.code=code;this.status=status;this.details=details;}
 }
-
-const ERROR_MESSAGES = Object.freeze({
-  'auth/invalid-email': 'Enter a valid email address.',
-  'auth/missing-password': 'Enter your password.',
-  'auth/weak-password': 'Use a password with at least 8 characters that meets the account password policy.',
-  'auth/password-does-not-meet-requirements': 'That password does not meet the account password policy. Choose a stronger password.',
-  'auth/invalid-credential': 'The email or password could not be verified. Try again or reset your password.',
-  'auth/wrong-password': 'The email or password could not be verified. Try again or reset your password.',
-  'auth/user-not-found': 'The email or password could not be verified. Try again or reset your password.',
-  'auth/email-already-in-use': 'This email cannot create a new account. Try signing in or resetting your password.',
-  'auth/user-disabled': 'This account is unavailable. Contact app support.',
-  'auth/too-many-requests': 'Too many attempts. Wait a little before trying again.',
-  'auth/network-request-failed': 'Connect to the internet and try again. Your local workout records are unchanged.',
-  'auth/popup-closed-by-user': 'Google sign-in was cancelled. You can try again or sign in with email.',
-  'auth/cancelled-popup-request': 'Another Google sign-in window is already open. Complete that window first.',
-  'auth/popup-blocked': 'Allow the Google sign-in window in your browser, then try again. Email sign-in is also available.',
-  'auth/unauthorized-domain': 'This website has not been authorized for sign-in by the app owner.',
-  'auth/operation-not-allowed': 'This sign-in method has not been enabled by the app owner.',
-  'auth/invalid-api-key': 'The app owner needs to finish the sign-in service configuration.',
-  'auth/app-not-authorized': 'The app owner needs to authorize this app with the sign-in service.',
-  'auth/account-exists-with-different-credential': 'Use the original sign-in method for this email address.',
-  'auth/requires-recent-login': 'Sign in again before deleting your account, then retry deletion.',
-  'auth/web-storage-unsupported': 'This browser cannot keep the sign-in session. Allow site storage or use another browser.',
-  'auth/unsupported-persistence-type': 'This browser cannot keep the requested sign-in session. Use another browser.'
-});
-
-export function authError(error) {
-  if (error instanceof AuthError) return error;
-  const code = typeof error?.code === 'string' && /^auth\/[a-z-]+$/.test(error.code) ? error.code : 'auth/unavailable';
-  // Provider messages can contain account data and internal request details.
-  // Present only a known, safe message and never retain the original error.
-  return new AuthError(code, ERROR_MESSAGES[code] || 'Sign-in could not complete. Try again when you are online.');
+const SESSION_KEY='form.auth.last-user.v1';
+const identity=user=>{
+ if(!user||typeof user.uid!=='string'||user.uid.length<1||user.uid.length>100||/[^a-zA-Z0-9_.-]/.test(user.uid))return null;
+ return Object.freeze({uid:user.uid,email:typeof user.email==='string'?user.email:null,displayName:typeof user.displayName==='string'?user.displayName.slice(0,80):'',emailVerified:user.emailVerified===true,isAdmin:user.isAdmin===true,provider:'django',offline:user.offline===true});
+};
+export function validateAuthConfig(config,win){
+ if(config&&Object.keys(config).some(key=>/secret|password|token|database_?url|service.?account|private/i.test(key)))throw new AuthError('auth/configuration','Only public account-server settings belong in the frontend.');
+ if(!config||config.provider!=='django'||!config.apiBaseUrl)return null;
+ const base=new URL(config.apiBaseUrl,win.location.origin);
+ if(base.origin!==win.location.origin||!['https:','http:'].includes(base.protocol)||base.username||base.password||base.search||base.hash)throw new AuthError('auth/configuration','Open FORM at its account-server address to sign in securely.');
+ if(!base.pathname.endsWith('/'))base.pathname+='/';
+ return {base:base.href,requireAccounts:config.requireAccounts!==false};
 }
-
-export function validateAuthConfig(value) {
-  if (!value || value.provider !== 'firebase' || !value.firebase) return null;
-  const input = value.firebase;
-  if (!input || typeof input !== 'object' || Array.isArray(input)) throw new AuthError('auth/configuration', 'The app owner needs to provide a valid public Firebase Web configuration.');
-  if (Object.keys(input).some(key => /private|secret|service.?account|password|refresh.?token/i.test(key))) throw new AuthError('auth/configuration', 'Only public Firebase Web configuration belongs in the browser.');
-  const config = {};
-  for (const field of ['apiKey', 'authDomain', 'projectId', 'appId']) {
-    const entry = input[field];
-    if (typeof entry !== 'string' || !entry.trim() || entry.length > 300 || /REPLACE|YOUR_|PLACEHOLDER|BEGIN .*PRIVATE KEY/i.test(entry)) throw new AuthError('auth/configuration', 'The app owner needs to finish the public Firebase Web configuration.');
-    config[field] = entry.trim();
-  }
-  if (!/^[a-z0-9][a-z0-9.-]*\.[a-z0-9-]+$/i.test(config.authDomain) || !/^[a-z][a-z0-9-]{4,28}[a-z0-9]$/.test(config.projectId)) throw new AuthError('auth/configuration', 'The Firebase project or authentication domain is invalid.');
-  if (!['local', 'session', 'none'].includes(value.persistence ?? 'local')) throw new AuthError('auth/configuration', 'Choose a supported sign-in persistence mode.');
-  return Object.freeze({firebase: Object.freeze(config), persistence: value.persistence ?? 'local', googleEnabled: value.googleEnabled !== false});
-}
-
-function emailAddress(value) {
-  if (typeof value !== 'string' || value.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) throw new AuthError('auth/invalid-email', ERROR_MESSAGES['auth/invalid-email']);
-  return value.trim();
-}
-
-function passwordValue(value, signup = false) {
-  if (typeof value !== 'string' || value.length === 0) throw new AuthError('auth/missing-password', ERROR_MESSAGES['auth/missing-password']);
-  if (value.length > 4096 || (signup && value.length < 8)) throw new AuthError('auth/weak-password', ERROR_MESSAGES['auth/weak-password']);
-  return value;
-}
-
-function publicSession(user) {
-  if (!user || typeof user.uid !== 'string' || !user.uid) return null;
-  return Object.freeze({
-    uid: user.uid,
-    email: typeof user.email === 'string' ? user.email : null,
-    displayName: typeof user.displayName === 'string' ? user.displayName : '',
-    emailVerified: user.emailVerified === true,
-    provider: 'firebase'
-  });
-}
-
-async function officialSdk() {
-  const [app, auth] = await Promise.all([
-    import('https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js'),
-    import('https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js')
-  ]);
-  return {...app, ...auth};
-}
-
-export function initAuth(win, options = {}) {
-  let configuration = null, configurationError = null;
-  try { configuration = validateAuthConfig(options.config ?? AUTH_CONFIG); }
-  catch (error) { configurationError = authError(error); }
-  const supported = !!(win?.document && win?.location && ['http:', 'https:'].includes(win.location.protocol));
-  const loadSdk = options.loadSdk || officialSdk;
-  let sdk = null, auth = null, initialization = null, unsubscribe = null, session = null, disposed = false;
-  let status = configurationError ? 'error' : !configuration ? 'unconfigured' : !supported ? 'unsupported' : win.navigator?.onLine === false ? 'offline' : 'idle';
-
-  function notifyError(error) { try { options.onError?.(error); } catch {} }
-  function emit(user) {
-    if (disposed) return;
-    session = publicSession(user);
-    try { options.onSessionChanged?.(session); } catch {}
-  }
-  function available(requireNetwork = true) {
-    if (disposed) throw new AuthError('auth/disposed', 'The sign-in session has closed. Reload the app to continue.');
-    if (configurationError) throw configurationError;
-    if (!configuration) throw new AuthError('auth/not-configured', 'Account sign-in is not connected yet. The app owner must configure the authentication service.');
-    if (!supported) throw new AuthError('auth/unsupported', 'Use the app in an HTTPS browser or localhost to sign in.');
-    if (requireNetwork && win.navigator?.onLine === false) throw new AuthError('auth/offline', 'Connect to the internet to sign in or manage an account. Local workouts remain available.');
-  }
-  async function initialize() {
-    available();
-    if (sdk && auth && status === 'ready') return;
-    if (initialization) return initialization;
-    status = 'loading';
-    initialization = (async () => {
-      try {
-        const loaded = await loadSdk();
-        available();
-        const name = 'form-auth';
-        const existing = loaded.getApps().find(app => app.name === name);
-        if (existing && existing.options?.projectId !== configuration.firebase.projectId) throw new AuthError('auth/configuration', 'The configured authentication project changed. Reload before signing in.');
-        const app = existing || loaded.initializeApp(configuration.firebase, name);
-        const client = loaded.getAuth(app);
-        client.useDeviceLanguage?.();
-        const persistence = {local: loaded.browserLocalPersistence, session: loaded.browserSessionPersistence, none: loaded.inMemoryPersistence}[configuration.persistence];
-        await loaded.setPersistence(client, persistence);
-        available();
-        sdk = loaded; auth = client;
-        await new Promise((resolve, reject) => {
-          unsubscribe?.();
-          unsubscribe = loaded.onAuthStateChanged(client, user => { status = 'ready'; emit(user); resolve(); }, error => reject(error));
-        });
-      } catch (error) {
-        unsubscribe?.(); unsubscribe = null; sdk = null; auth = null;
-        const safe = authError(error); status = safe.code === 'auth/offline' ? 'offline' : 'error';
-        throw safe;
-      } finally { initialization = null; }
-    })();
-    return initialization;
-  }
-  async function operation(action, {network = true} = {}) {
-    try { available(network); await initialize(); available(network); return await action(sdk, auth); }
-    catch (error) { throw authError(error); }
-  }
-  function requireUser(client) {
-    if (!client.currentUser) throw new AuthError('auth/not-signed-in', 'Sign in before managing your account.');
-    return client.currentUser;
-  }
-  function handleOnline() { if (!disposed && configuration && supported) initialize().catch(notifyError); }
-  win?.addEventListener?.('online', handleOnline);
-  if (configurationError) notifyError(configurationError);
-  if (configuration && supported && win.navigator?.onLine !== false) initialize().catch(notifyError);
-
-  return Object.freeze({
-    provider: 'firebase',
-    configured: !!configuration && !configurationError,
-    supported,
-    googleEnabled: !!configuration?.googleEnabled,
-    getSession: () => session,
-    getStatus: () => status,
-    // Unconfigured/offline boot can still render the local workout shell.
-    ready: async () => {
-      if (!configuration || !supported || win.navigator?.onLine === false) return null;
-      await initialize(); return session;
-    },
-    signUp: (email, password, displayName = '') => operation(async (api, client) => {
-      const address = emailAddress(email), secret = passwordValue(password, true);
-      if (typeof displayName !== 'string' || displayName.trim().length > 80 || /[\u0000-\u001f\u007f]/.test(displayName)) throw new AuthError('auth/invalid-name', 'Use a display name with up to 80 characters.');
-      const result = await api.createUserWithEmailAndPassword(client, address, secret);
-      // A profile-write failure does not undo an account already created.
-      if (displayName.trim()) {
-        try { await api.updateProfile(result.user, {displayName: displayName.trim()}); }
-        catch { notifyError(new AuthError('auth/profile-not-saved', 'Your account was created, but its display name could not be saved.')); }
-      }
-      emit(result.user); return session;
-    }),
-    signIn: (email, password) => operation(async (api, client) => {
-      const result = await api.signInWithEmailAndPassword(client, emailAddress(email), passwordValue(password));
-      emit(result.user); return session;
-    }),
-    resetPassword: email => operation(async (api, client) => {
-      await api.sendPasswordResetEmail(client, emailAddress(email));
-      return {requested: true};
-    }),
-    signInGoogle: () => operation(async (api, client) => {
-      if (!configuration.googleEnabled) throw new AuthError('auth/operation-not-allowed', ERROR_MESSAGES['auth/operation-not-allowed']);
-      const provider = new api.GoogleAuthProvider();
-      provider.setCustomParameters({prompt: 'select_account'});
-      // Popup avoids the cross-origin redirect storage problem on GitHub Pages.
-      // https://firebase.google.com/docs/auth/web/redirect-best-practices
-      const result = await api.signInWithPopup(client, provider);
-      emit(result.user); return session;
-    }),
-    sendVerificationEmail: () => operation(async (api, client) => {
-      await api.sendEmailVerification(requireUser(client)); return {requested: true};
-    }),
-    signOut: async () => {
-      if (!configuration) { session = null; return; }
-      try {
-        available(false);
-        if (!sdk || !auth) {
-          if (win.navigator?.onLine === false) throw new AuthError('auth/offline', 'Reconnect to finish signing out of the saved account session.');
-          await initialize();
-        }
-        await sdk.signOut(auth); emit(null);
-      } catch (error) { throw authError(error); }
-    },
-    deleteAccount: () => operation(async (api, client) => {
-      await api.deleteUser(requireUser(client)); emit(null);
-      return {deleted: true};
-    }),
-    dispose: () => { disposed = true; unsubscribe?.(); win?.removeEventListener?.('online', handleOnline); }
-  });
+export function initAuth(win,options={}){
+ let configuration=null,configError=null;try{configuration=validateAuthConfig(options.config??AUTH_CONFIG,win);}catch(e){configError=e;}
+ const fetcher=options.fetch||win.fetch?.bind(win),supported=!!fetcher,abort=new AbortController();
+ let session=null,csrf='',status=configError?'error':configuration?'idle':'unconfigured',initialization=null,disposed=false;
+ function emit(user){if(disposed)return;session=identity(user);try{if(session){win.localStorage.setItem(SESSION_KEY,JSON.stringify({...session,isAdmin:false,offline:true}));}else win.localStorage.removeItem(SESSION_KEY);}catch{}try{options.onSessionChanged?.(session);}catch{}}
+ function restoreOffline(){if(session)session=Object.freeze({...session,isAdmin:false,offline:true});try{const cached=identity(JSON.parse(win.localStorage.getItem(SESSION_KEY)));if(cached)session=Object.freeze({...cached,isAdmin:false,offline:true});}catch{}return session;}
+ function fail(code,message,httpStatus=0,details=null){return new AuthError(code,message,httpStatus,details);}
+ async function request(path,{method='GET',body,skipReady=false,expectedUid}={}){
+  if(disposed)throw fail('auth/disposed','The account connection has closed. Reload FORM.');
+  if(configError)throw configError;
+  if(!configuration||!fetcher)throw fail('auth/unconfigured','The account server is not connected at this address.');
+  if(win.navigator?.onLine===false)throw fail('auth/offline','Reconnect to the internet to use your account. Your device records are kept.');
+  if(!skipReady&&!csrf&&method!=='GET')await ready();
+  const destination=new URL(path,configuration.base);if(destination.origin!==win.location.origin||!destination.pathname.startsWith(new URL(configuration.base).pathname))throw fail('auth/configuration','This account request is outside the configured API.');
+  let response;try{response=await fetcher(destination.href,{method,credentials:'same-origin',redirect:'error',cache:'no-store',headers:{Accept:'application/json',...(body!==undefined?{'Content-Type':'application/json'}:{}),...(method!=='GET'?{'X-CSRFToken':csrf}:{}),...(expectedUid?{'X-FORM-User':expectedUid}:{})},...(body!==undefined?{body:JSON.stringify(body)}:{}),signal:typeof AbortSignal.any==='function'?AbortSignal.any([abort.signal,AbortSignal.timeout(25000)]):abort.signal});}catch{throw fail('auth/network','The account server could not be reached. Your local records are kept.');}
+  let data=null;try{data=response.status===204?null:await response.json();}catch{if(response.status===404||response.ok)status='unavailable';throw fail('auth/unavailable','The account server is not available at this address yet.',response.status);}
+  if(typeof data?.csrfToken==='string'&&data.csrfToken.length<=256)csrf=data.csrfToken;
+  if(!response.ok){if(response.status===404&&path.startsWith('auth/'))status='unavailable';const code=typeof data?.code==='string'&&data.code.length<=81&&/^[a-z]/.test(data.code)&&! /[^a-z0-9_/.-]/.test(data.code)?data.code:response.status===401?'auth/session-expired':response.status===403?'auth/permission-denied':response.status===409?'cloud/conflict':'auth/request-failed';const message=typeof data?.message==='string'&&data.message.length<=700?data.message:response.status===429?'Too many attempts. Please wait before trying again.':'The request could not complete. Try again.';throw fail(code,message,response.status,response.status===409?data:null);}
+  return data;
+ }
+ async function ready(){
+  if(disposed)return null;if(initialization)return initialization;
+  if(!configuration||configError||!fetcher)return null;
+  if(win.navigator?.onLine===false){status='offline';return restoreOffline();}
+  initialization=(async()=>{try{const data=await request('auth/session/',{skipReady:true});status='ready';emit(data?.user||null);return session;}catch(error){status=error.code==='auth/unavailable'?'unavailable':'offline';if(status==='offline')restoreOffline();try{options.onError?.(error);}catch{}return session;}finally{initialization=null;}})();return initialization;
+ }
+ function requireEmail(email){if(typeof email!=='string'||email.length>254)throw fail('auth/invalid-email','Enter a valid email address.');const address=email.trim();if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(address))throw fail('auth/invalid-email','Enter a valid email address.');return address;}
+ function requirePassword(password,signup=false){if(typeof password!=='string'||password.length>256||password.length<(signup?10:1))throw fail('auth/invalid-password',signup?'Use a password with at least 10 characters.':'Enter your password.');return password;}
+ function confirmation(data){if(data?.confirmationRequired!==true||typeof data.challengeId!=='string'||data.challengeId.length<1||data.challengeId.length>100||/[^a-zA-Z0-9_.-]/.test(data.challengeId))throw fail('auth/invalid-response','The account server did not provide a valid email confirmation.');return {confirmationRequired:true,challengeId:data.challengeId,maskedEmail:typeof data.maskedEmail==='string'?data.maskedEmail.slice(0,254):'your email',expiresAt:data.expiresAt,resendAfter:data.resendAfter};}
+ async function accountOperation(path,body){const data=await request(path,{method:'POST',body});status='confirmation';return confirmation(data);}
+ const online=()=>{ready();};win.addEventListener?.('online',online);
+ return Object.freeze({
+  get configured(){return !!configuration&&!configError&&status!=='unavailable';},get supported(){return supported;},provider:'django',requiresAccounts:(options.config??AUTH_CONFIG).requireAccounts!==false,googleEnabled:false,
+  getStatus:()=>status,getSession:()=>session,ready,request,
+  signUp:(email,password,displayName='',trackingConsent=false)=>{if(!trackingConsent)return Promise.reject(fail('auth/consent-required','Please agree to progress storage and owner monitoring before creating an account.'));if(typeof displayName!=='string'||displayName.trim().length>80)return Promise.reject(fail('auth/invalid-name','Use a name with up to 80 characters.'));return accountOperation('auth/signup/',{email:requireEmail(email),password:requirePassword(password,true),displayName:displayName.trim(),trackingConsent:true});},
+  signIn:(email,password)=>accountOperation('auth/login/',{email:requireEmail(email),password:requirePassword(password)}),
+  resendConfirmation:async challengeId=>confirmation(await request('auth/resend-confirmation/',{method:'POST',body:{challengeId}})),
+  confirmEmail:async(challengeId,token)=>{const data=await request('auth/confirm-email/',{method:'POST',body:{challengeId,token}});const user=identity(data?.user);if(!user||!user.emailVerified)throw fail('auth/invalid-response','Email confirmation did not establish a verified account session.');status='ready';emit(user);return session;},
+  resetPassword:email=>request('auth/password-reset/',{method:'POST',body:{email:requireEmail(email)}}),
+  confirmPasswordReset:({uid,token,password})=>request('auth/password-reset-confirm/',{method:'POST',body:{uid,token,password:requirePassword(password,true)}}),
+  signOut:async()=>{await request('auth/logout/',{method:'POST',body:{}});emit(null);},
+  deleteAccount:async password=>{await request('auth/delete-account/',{method:'POST',body:{password:requirePassword(password)}});emit(null);return {deleted:true};},
+  dispose:()=>{disposed=true;abort.abort();win.removeEventListener?.('online',online);}
+ });
 }

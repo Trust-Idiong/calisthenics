@@ -1,10 +1,10 @@
 /* Increment VERSION whenever a deployed application-shell asset changes. */
-const VERSION = '2026.10.13-3';
+const VERSION = '2026.10.16-2';
 const SCOPE = new URL('./', self.location.href);
 const PREFIX = 'form-seven:' + encodeURIComponent(SCOPE.pathname) + ':';
 const CACHE = PREFIX + VERSION;
 const SHELL_PATHS = [
-  './index.html', './onboarding.js', './onboarding.css', './home.js', './home.css', './auth.js', './auth-config.js', './assets/welcome-athletes.jpg', './fitness.js', './fitness.css', './movement.css', './catalog.js', './reminders.js', './energy.js', './ui.js', './planner.js', './personalize.css', './privacy.html', './privacy.css', './app.js', './engine.js', './exercises.js', './checkpoint.js', './storage.js', './styles.css',
+  './index.html', './onboarding.js', './onboarding.css', './home.js', './home.css', './auth.js', './cloud.js', './sync.js', './admin.js', './admin.css', './pelvic.js', './pelvic-settings.js', './pelvic.css', './auth-config.js', './assets/welcome-athletes.jpg', './fitness.js', './fitness.css', './movement.css', './catalog.js', './reminders.js', './energy.js', './ui.js', './planner.js', './personalize.css', './privacy.html', './privacy.css', './app.js', './engine.js', './exercises.js', './checkpoint.js', './storage.js', './styles.css',
   './pwa.js', './pwa.css', './mobile.css', './manifest.webmanifest', './assets/favicon.svg',
   './assets/icon-192.png', './assets/icon-512.png', './assets/icon-maskable-512.png',
 ];

@@ -3,11 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test tests/*.test.mjs android-release/tooling.test.mjs",
+    "test": "node --test --test-concurrency=1 tests/*.test.mjs android-release/tooling.test.mjs",
     "start": "node scripts/serve.mjs",
-    "check": "node --check dist/onboarding.js && node --check dist/home.js && node --check dist/auth.js && node --check dist/auth-config.js && node --check scripts/auth-configure.mjs && node --check dist/app.js && node --check dist/ui.js && node --check dist/engine.js && node --check dist/exercises.js && node --check dist/storage.js && node --check dist/checkpoint.js && node --check dist/pwa.js && node --check dist/sw.js && node --check dist/planner.js && node --check dist/fitness.js && node --check dist/catalog.js && node --check dist/reminders.js && node --check dist/energy.js && node --check scripts/android-utils.mjs && node --check scripts/android-assetlinks.mjs && node --check scripts/android-configure.mjs && node --check scripts/android-verify-host.mjs && node --check scripts/android-check-project.mjs && npm test"
+    "check": "node --check dist/pelvic-settings.js && node --check dist/pelvic.js && node --check dist/cloud.js && node --check dist/sync.js && node --check dist/admin.js && node --check dist/onboarding.js && node --check dist/home.js && node --check dist/auth.js && node --check dist/auth-config.js && node --check dist/app.js && node --check dist/ui.js && node --check dist/engine.js && node --check dist/exercises.js && node --check dist/storage.js && node --check dist/checkpoint.js && node --check dist/pwa.js && node --check dist/sw.js && node --check dist/planner.js && node --check dist/fitness.js && node --check dist/catalog.js && node --check dist/reminders.js && node --check dist/energy.js && node --check scripts/android-utils.mjs && node --check scripts/android-assetlinks.mjs && node --check scripts/android-configure.mjs && node --check scripts/android-verify-host.mjs && node --check scripts/android-check-project.mjs && npm test"
   },
-  "version": "6.0.0",
+  "version": "7.0.0",
   "devDependencies": {
     "happy-dom": "^21.0.1"
   }

@@ -13,6 +13,8 @@ export const STYLES = Object.freeze([
 const routine = (id,name,area,style,level,defaultMinutes,movements,description,extra={}) => ({id,name,title:name,area,style,level,defaultMinutes,minutes:defaultMinutes,movements,description,...extra});
 const shapeContext='Exercise cannot spot-reduce belly fat or guarantee an hourglass shape. Genetics and body composition affect appearance.';
 const gluteProgression='Build controlled repetitions or a set gradually on recovered days, stopping before technique slips. Record actual reps and sets yourself; a timed window is not a counted muscle-building set. More muscle growth may eventually need greater resistance; this app currently supplies bodyweight practice.';
+const absContext='Build abdominal strength and control with recovery between sessions. A six-pack appearance depends on body composition, genetics and other factors; exercise cannot spot-reduce belly fat or guarantee visible abs by a date.';
+const coreProgression='Use controlled repetitions and short comfortable holds with breaks. Progress only when the current variation feels manageable, and record your actual assessment rather than deriving repetitions from the timer.';
 
 // Original app-authored circuits. Source organizations do not endorse these plans.
 export const ROUTINES = Object.freeze([
@@ -22,6 +24,9 @@ export const ROUTINES = Object.freeze([
   routine('full-advanced','Experienced full-body circuit','full','calisthenics','advanced',25,['pushup','squat','reverselunge','sideplank','forearmplank'],'A balanced circuit for people already comfortable with floor pressing and lunges.'),
   routine('abs-control','Abs: steady control','abs','strength','beginner',10,['deadbug','bird','bridge','plank'],'Practice abdominal control with comfortable, deliberate movement; no spot-reduction claims.'),
   routine('abs-crunch','Abs: controlled crunch circuit','abs','strength','intermediate',12,['crunch','deadbug','forearmplank'],'Small controlled curls alternate with abdominal stabilization.'),
+  routine('six-pack-start','Six-pack: core foundations','abs','strength','beginner',15,['deadbug','bird','bridge','plank'],'A gentle abdominal-control circuit with comfortable floor practice and an optional wall-supported hold. '+coreProgression+' '+absContext,{adultOnly:true,coreFocus:true,secondaryAreas:['core'],requiredAreas:['core'],goalTags:['abs','core','strength'],keywords:['abs','six-pack','sixpack','abdominal','definition','core']}),
+  routine('six-pack-control','Six-pack: controlled core strength','abs','strength','intermediate',20,['crunch','deadbug','forearmplank','bird'],'Alternate small abdominal curls with stable trunk positions and deliberate alternating movement. '+coreProgression+' '+absContext,{adultOnly:true,coreFocus:true,secondaryAreas:['core'],requiredAreas:['core'],goalTags:['abs','core','strength'],keywords:['abs','six-pack','sixpack','abdominal','definition','core']}),
+  routine('six-pack-progress','Six-pack: progressive core practice','abs','calisthenics','advanced',25,['sideplank','forearmplank','mountainclimber','crunch','deadbug'],'Experienced bodyweight core practice with both sides, controlled stepping and recovery before technique changes. '+coreProgression+' '+absContext,{adultOnly:true,coreFocus:true,secondaryAreas:['core'],requiredAreas:['core'],goalTags:['abs','core','strength'],keywords:['abs','six-pack','sixpack','abdominal','definition','core','progression']}),
   routine('chest-start','Chest: wall-press practice','chest','strength','beginner',10,['wall','tricepswall'],'Start with supported wall pressing and an optional close-grip variation.'),
   routine('chest-knee-start','Chest: gentle floor pressing','chest','strength','beginner',10,['kneepushup'],'Introductory knee-supported pressing without equipment, when knees, wrists, shoulders and floor access are comfortable.'),
   routine('chest-floor','Chest: floor-press foundations','chest','strength','intermediate',12,['kneepushup'],'Practice knee-supported pressing with generous recovery.'),
@@ -63,7 +68,8 @@ export const PROGRAMS = Object.freeze([
   program('core-four','Four-week core consistency','core-stable','beginner','Repeat controlled core practice and record comfortable assessments if useful.'),
   program('cardio-four','Four-week activity rhythm','cardio-gentle','beginner','Develop a repeatable gentle activity habit with optional walking between sessions.'),
   program('strength-four','Four-week experienced strength','full-advanced','advanced','Practice experienced bodyweight patterns without maximal-effort tests or guaranteed outcomes.'),
-  program('curves-eight','Glutes & core / Curves','curves-floor-start','beginner','An eight-week starting template with floor, supported standing or experienced bodyweight variants. Adjust the timeframe to suit your life; six to twelve weeks is a practice horizon, not a promised result date. '+shapeContext,{weeks:8,durationWeeks:8,suggestedWeeks:[6,8,12],adultOnly:true,routineOptions:['curves-floor-start','curves-standing-start','glutes-progressive'],assessment:'Comfortable glute repetitions using the same exercise and method; a strength proxy, not a silhouette score.'})
+  program('curves-eight','Figure 8 / Glutes & core','curves-floor-start','beginner','Glute and core strength for goals often called Figure 8, open to any adult who shares the goal. An eight-week starting template with floor, supported standing or experienced bodyweight variants. Adjust the timeframe to suit your life; six to twelve weeks is a practice horizon, not a promised result date. '+shapeContext,{weeks:8,durationWeeks:8,suggestedWeeks:[6,8,12],adultOnly:true,routineOptions:['curves-floor-start','curves-standing-start','glutes-progressive'],assessment:'Comfortable glute repetitions using the same exercise and method; a strength proxy, not a silhouette score.'}),
+  program('abs-definition','Six-pack / Core strength','six-pack-start','beginner','A flexible twelve-week practice template with beginner, intermediate and experienced bodyweight variants on separated training days. The timeline supports a routine, rather than predicting when abs will become visible. '+coreProgression+' '+absContext,{weeks:12,durationWeeks:12,suggestedWeeks:[8,12,16],adultOnly:true,routineOptions:['six-pack-start','six-pack-control','six-pack-progress'],assessment:'A comfortable core hold using the same variation and method; a strength-control observation, not a body-fat or visible-definition score.'})
 ]);
 
 const ranks = {beginner:0,intermediate:1,advanced:2};
@@ -136,10 +142,12 @@ export function catalogSession(profile,routineId,opts={}) {
   if(p.ageBand==='older')rest=Math.max(rest,40);
   if(p.ageBand==='teen')rest=Math.max(rest,35);
   if(r.gluteFocus)rest=Math.max(rest,60);
+  if(r.coreFocus)rest=Math.max(rest,45);
   let adaptationReason=opts.feedback===undefined?'Working windows and recovery match your current ability and movement choices.':'Your last session felt manageable; the work and recovery balance stays steady.';
   if(feedback==='hard'){work=Math.max(15,work-10);rest+=15;adaptationReason='Your last session felt hard: shorter working windows and longer recovery, with the same eligible movements.';}
   if(feedback==='easy'&&!recovery){work=Math.min(workCap,work+5);rest=Math.max(p.ageBand==='adult'?20:p.ageBand==='older'?40:35,rest-5);adaptationReason='Your last session felt easy: a small increase in working time within your current level; no harder exercise variation was added.';}
   if(week%4===0&&!recovery){work=Math.max(15,work-10);rest+=10;adaptationReason+=' This fourth week is lighter.';}
+  if(r.coreFocus)rest=Math.max(rest,45);
   work=Math.min(work,workCap);
   const total=minutes*60,warm=Math.round(clamp(total*.2,60,360)),cool=Math.round(clamp(total*.15,60,300));
   let budget=total-warm-cool,index=0;

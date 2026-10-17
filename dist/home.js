@@ -66,7 +66,7 @@ export function initHome(win,api){
     element('home-greeting').textContent=profile.name?'Hi, '+profile.name+'.':'Your next step.';
     element('home-date').textContent=today.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'});
     const monday=new win.Date(today.getFullYear(),today.getMonth(),today.getDate()-((today.getDay()+6)%7));
-    const complete=new Set(state.workouts.filter(workout=>workout.skipped===0&&workout.seconds>0&&workout.date>=dateKey(monday)&&workout.date<=todayKey).map(workout=>workout.date));
+    const complete=new Set(state.workouts.filter(workout=>workout.routineId!=='pelvic-floor'&&workout.skipped===0&&workout.seconds>0&&workout.date>=dateKey(monday)&&workout.date<=todayKey).map(workout=>workout.date));
     element('home-week-caption').textContent=complete.size+' completed '+(complete.size===1?'day':'days');
     element('home-week').innerHTML=Array.from({length:7},(_,index)=>{const day=new win.Date(monday);day.setDate(day.getDate()+index);const key=dateKey(day),done=complete.has(key),planned=profile.days.includes(day.getDay()),current=key===todayKey;return `<div class="home-week-day ${done?'complete':''} ${planned?'planned':''} ${current?'today':''}" title="${key}: ${done?'completed workout':planned?'planned training day':'rest day'}" ${current?'aria-current="date"':''}><span>${['M','T','W','T','F','S','S'][index]}</span><strong>${done?'✓':day.getDate()}</strong></div>`;}).join('');
     planError='';let plan,session;

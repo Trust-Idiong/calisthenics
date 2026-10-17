@@ -1,0 +1,44 @@
+# This Blueprint creates recurring PAID web/PostgreSQL resources.
+# Review the plans and current Render pricing before applying it.
+services:
+  - type: web
+    name: form-calisthenics
+    runtime: python
+    region: oregon
+    plan: 0.5c-512mb
+    buildCommand: bash backend/build.sh
+    preDeployCommand: python backend/manage.py migrate --no-input
+    startCommand: gunicorn --chdir backend config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 120
+    healthCheckPath: /api/health/
+    autoDeployTrigger: off
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.14.6
+      - key: DJANGO_DEBUG
+        value: "false"
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: form-calisthenics-db
+          property: connectionString
+      - key: DATABASE_SSL_REQUIRE
+        value: "true"
+      # These values are entered privately when the Blueprint is applied.
+      # The sender must already be verified in Brevo. No secrets live in Git.
+      - key: BREVO_API_KEY
+        sync: false
+      - key: BREVO_SENDER_EMAIL
+        sync: false
+      - key: BREVO_SENDER_NAME
+        value: FORM
+databases:
+  - name: form-calisthenics-db
+    region: oregon
+    plan: 0.1c-256mb
+    databaseName: form
+    user: form
+    postgresMajorVersion: "18"
+    diskSizeGB: 1
+    storageAutoscalingEnabled: false
+    ipAllowList: []

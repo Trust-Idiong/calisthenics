@@ -7,3 +7,8 @@ output/
 tmp/
 *.log
 *.tar.gz
+__pycache__/
+*.py[cod]
+backend/*.sqlite3
+backend/staticfiles/
+.pytest_cache/

@@ -22,7 +22,7 @@ test('catalog covers all advertised body areas and styles with authored routines
   assert.ok(PROGRAMS.some(program=>program.id==='pushup-challenge'&&program.challenge));
   for(const program of PROGRAMS){
     assert.equal(program.weeks,program.durationWeeks);
-    assert.ok([4,8].includes(program.weeks));
+    assert.ok([4,8,12].includes(program.weeks));
     assert.ok(ROUTINES.some(routine=>routine.id===program.routineId));
     assert.equal(program.schedule.length,3);
     assert.ok(program.schedule.every((day,index)=>!index||day.day-program.schedule[index-1].day>=2));

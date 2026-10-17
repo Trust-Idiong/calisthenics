@@ -1,12 +1,13 @@
 import {EXERCISES} from './exercises.js';
 import {validateReminderPreferences} from './reminders.js';
+import {validatePelvicSettings} from './pelvic-settings.js';
 
 export const SESSIONS = {
   foundation: { id: 'foundation', title: 'Foundation', minutes: 10, level: 'Start here', warm: 120, cool: 120, work: 30, rest: 30, rounds: 2, exercises: ['chair', 'wall', 'march'], description: 'A gentle, low-impact introduction. A chair, a wall, and a little space are all you need.' },
   core: { id: 'core', title: 'Core & control', minutes: 12, level: 'When comfortable', warm: 120, cool: 120, work: 30, rest: 30, rounds: 2, exercises: ['bridge', 'bird', 'plank', 'march'], description: 'Build trunk and hip strength with controlled movement. Use the floor only if getting up and down is comfortable.' },
   strength: { id: 'strength', title: 'Full-body strength', minutes: 16, level: 'Build gradually', warm: 180, cool: 180, work: 40, rest: 20, rounds: 2, exercises: ['chair', 'wall', 'bridge', 'bird', 'plank'], description: 'A longer session with more working time. Progress here when the shorter sessions feel manageable.' }
 };
-const GOAL_TYPES=['conditioning','strength','core','cardio','weight','mobility','consistency','test','curves'];
+const GOAL_TYPES=['conditioning','strength','core','cardio','weight','mobility','consistency','test','curves','abs'];
 const textValue=(value,max,label,{markup=true}={})=>{
   if(typeof value!=='string'||value.length>max||/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(value)||(!markup&&/[<>]/.test(value)))throw new Error(`The ${label} is invalid.`);
   return value;
@@ -28,7 +29,7 @@ export function validateCustomRoutine(value){
   return {id,name,movements,warmup,cooldown};
 }
 export function freshSettings(days=[1,3,5]){
-  return {voice:false,reminders:validateReminderPreferences(undefined,days),energy:{enabled:false,age:null,weight:null,intensity:'light'}};
+  return {voice:false,reminders:validateReminderPreferences(undefined,days),energy:{enabled:false,age:null,weight:null,intensity:'light'},pelvic:validatePelvicSettings()};
 }
 function validateSettings(value,profile){
   if(value===undefined)return freshSettings(profile.days);
@@ -39,7 +40,7 @@ function validateSettings(value,profile){
   if(!energy||typeof energy!=='object'||Array.isArray(energy))throw new Error('The energy settings are invalid.');
   const enabled=energy.enabled===undefined?false:energy.enabled,age=energy.age??null,weight=energy.weight??null,intensity=energy.intensity===undefined?'light':energy.intensity;
   if(typeof enabled!=='boolean'||!['light','moderate','vigorous'].includes(intensity)||(age!==null&&(!Number.isInteger(age)||age<19||age>59))||(weight!==null&&(!Number.isFinite(weight)||weight<30||weight>400))||(enabled&&(age===null||weight===null||profile.ageBand==='teen')))throw new Error('Energy estimates require an adult age from 19 to 59 and a weight from 30 to 400 kg.');
-  return {voice,reminders:validateReminderPreferences(value.reminders,profile.days),energy:{enabled,age,weight,intensity}};
+  return {voice,reminders:validateReminderPreferences(value.reminders,profile.days),energy:{enabled,age,weight,intensity},pelvic:validatePelvicSettings(value.pelvic)};
 }
 export function validateSessionDescriptor(value){
   if(!value||value.id!=='personalized'||!Array.isArray(value.steps)||value.steps.length<3||value.steps.length>500)throw new Error('The personalized session is invalid.');
@@ -113,10 +114,10 @@ export function freshState(today=dateKey()){
 export function weeklySummary(state,start,end){
   const works=state.workouts.filter(w=>w.date>=start&&w.date<=end);
   const walks=state.walks.filter(w=>w.date>=start&&w.date<=end);
-  const complete=works.filter(w=>w.skipped===0);
+  const complete=works.filter(w=>w.skipped===0&&w.seconds>0);
   const walkMinutes=walks.reduce((n,w)=>n+w.minutes,0);
   const briskMinutes=walks.filter(w=>w.intensity==='brisk').reduce((n,w)=>n+w.minutes,0);
-  return {works,complete,walkMinutes,briskMinutes,strengthDays:new Set(complete.map(w=>w.date)).size,minutes:Math.round(works.reduce((n,w)=>n+w.seconds/60,0)+walkMinutes)};
+  return {works,complete,walkMinutes,briskMinutes,strengthDays:new Set(complete.filter(w=>w.routineId!=='pelvic-floor').map(w=>w.date)).size,minutes:Math.round(works.reduce((n,w)=>n+w.seconds/60,0)+walkMinutes)};
 }
 export function activitySummary(state,{from='0000-01-01',to='9999-12-31',today=dateKey()}={}){
   if(!validDate(today)||!validDate(from)||!validDate(to)||from>to)throw new Error('The activity period is invalid.');
@@ -169,7 +170,8 @@ export function validateState(x){
   profile.birthYear=p.birthYear===undefined?null:p.birthYear;
   const currentYear=new Date().getFullYear();
   if(profile.birthYear!==null&&(!Number.isInteger(profile.birthYear)||profile.birthYear<currentYear-100||profile.birthYear>currentYear-16))throw new Error('Choose a birth year for an age between 16 and 100, or leave it blank.');
-  if(goalType==='curves'&&profile.ageBand==='teen')throw new Error('Choose a strength, movement or consistency goal for a teen profile.');
+  if(profile.birthYear!==null&&currentYear-profile.birthYear<18&&profile.ageBand!=='teen')throw new Error('Use the teen age group for a birth year under 18. Your existing records are retained.');
+  if(['curves','abs'].includes(goalType)&&profile.ageBand==='teen')throw new Error('Choose a strength, movement or consistency goal for a teen profile.');
   const days=p.days??defaults.days;
   if(!Array.isArray(days)||days.length<1||days.length>7||days.some(day=>!Number.isInteger(day)||day<0||day>6)||new Set(days).size!==days.length)throw new Error('The training days are invalid.');
   profile.days=[...days];
@@ -177,11 +179,11 @@ export function validateState(x){
   if(!Number.isInteger(profile.sessionMinutes)||profile.sessionMinutes<10||profile.sessionMinutes>60)throw new Error('The session length is invalid.');
   profile.durationWeeks=p.durationWeeks??(legacy?Math.max(1,Math.ceil(daysBetween(p.startDate,p.deadline)/7)):defaults.durationWeeks);
   if(!Number.isInteger(profile.durationWeeks)||profile.durationWeeks<1||profile.durationWeeks>5200)throw new Error('The plan duration is invalid.');
-  profile.targetValue=legacy?(p.startWeight===null?null:p.startWeight-p.goalLoss):(p.targetValue===undefined?(goalType==='curves'?null:defaults.targetValue):p.targetValue);
+  profile.targetValue=legacy?(p.startWeight===null?null:p.startWeight-p.goalLoss):(p.targetValue===undefined?(['curves','abs'].includes(goalType)?null:defaults.targetValue):p.targetValue);
   if(profile.targetValue!==null&&(!Number.isFinite(profile.targetValue)||profile.targetValue<0||profile.targetValue>10000))throw new Error('The target value is invalid.');
   profile.baselineValue=p.baselineValue??defaults.baselineValue;
   if(!Number.isFinite(profile.baselineValue)||profile.baselineValue<0||profile.baselineValue>10000)throw new Error('The baseline value is invalid.');
-  profile.targetUnit=textValue(legacy?'kg':(p.targetUnit??(goalType==='curves'?'reps':defaults.targetUnit)),40,'target unit',{markup:false});
+  profile.targetUnit=textValue(legacy?'kg':(p.targetUnit??(['curves','abs'].includes(goalType)?'reps':defaults.targetUnit)),40,'target unit',{markup:false});
   for(const field of ['lowImpact','trackMeasurements','safetyAccepted']){
     if(p[field]!==undefined&&typeof p[field]!=='boolean')throw new Error(`The ${field} preference is invalid.`);
     profile[field]=p[field]??(field==='trackMeasurements'?(legacy||goalType==='weight'):field==='safetyAccepted'?legacy:defaults[field]);

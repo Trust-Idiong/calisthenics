@@ -53,6 +53,8 @@ function initializePWA() {
   }
 
   function activeWorkout() {
+    if(document.documentElement.dataset.pelvicPendingSave === 'true') return true;
+    if(workoutIsActive(document.documentElement.dataset.pelvicStatus)) return true;
     const explicit = document.documentElement.dataset.workoutStatus;
     if (explicit) return workoutIsActive(explicit);
     // Compatibility with the original FORM SEVEN package.
@@ -226,7 +228,7 @@ function initializePWA() {
     // until the person accepts a reload between workouts.
     if (updateActivated && updateConsent) reloadWhenSafe();
   });
-  observer.observe(document.documentElement, {attributes: true, attributeFilter: ['data-workout-status', 'data-unsaved-changes']});
+  observer.observe(document.documentElement, {attributes: true, attributeFilter: ['data-workout-status', 'data-pelvic-status', 'data-pelvic-pending-save', 'data-unsaved-changes']});
   const startLabel = document.getElementById('start-label');
   if (startLabel) observer.observe(startLabel, {childList: true, characterData: true, subtree: true});
 

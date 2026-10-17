@@ -1,50 +1,39 @@
-# Current device profiles and future account preparation
+# Accounts, email confirmation and progress sync
 
-Prepared October 13, 2026 for version 6.
+Updated October 16, 2026 for version 7.0.0. The requested account mode uses **Django, PostgreSQL and Brevo**, with a private owner dashboard. The earlier device-only/Firebase preparation has been replaced.
 
-## Current release state
+## Deployment status
 
-The user chose **device-only profiles for this release**. Welcome's **LET'S GO** begins the questionnaire at gender; **Your device profile** opens a local profile page with a continue/create-plan action and privacy information. No cloud account or password is required. This is the complete chosen mode, not a pending authentication-service connection.
+Account forms, the client sync layer and the Django backend are in the repository. **The Render service and PostgreSQL database have not been provisioned, and production email delivery is not connected.** No real user or owner account was created, and no confirmation email was sent during development. GitHub Pages serves static files and cannot run Django. Its account forms explain when the backend is unavailable.
 
-The Firebase adapter and connection helper are retained as **inactive preparation for possible future accounts**. `AUTH_CONFIG.firebase` is `null`; no Firebase project is connected and no remote signup/login/reset is presented as working. A local device profile does not create a cloud account or save a password. The steps below are future implementation reference, not current setup requirements or a release blocker.
+Render account access, a deployed Blueprint, a private Brevo API key and a Brevo-verified sender are still needed. The supplied Brevo campaign-page link identifies the provider; it does not provide transactional-email credentials. See [backend setup](backend-setup.md) for exact environment variables, deployment commands and API endpoints. Keep private keys, database credentials and passwords out of frontend files, Git and public issue reports.
 
-No Firebase or Supabase project, admin credential, service account or real user account was created during implementation. No Firebase/gcloud CLI or existing provider configuration was found for this project. Adapter tests use a test-only SDK substitute and do not verify a live backend.
+## User flow
 
-## Future Firebase connection reference
+1. **Sign up:** enter a name, email and password, and explicitly agree to server storage of the profile/progress and owner monitoring of training records.
+2. **Confirm email:** open the emailed link to establish the authenticated session. A password alone does not grant access to an unconfirmed session.
+3. **Set up a plan:** gender and the remaining questionnaire appear one screen at a time, followed by an actual schedule review and Home.
+4. **Log in later:** enter the email/password and confirm a new emailed link for each fresh login session. An already established session can be restored until it expires or is ended.
+5. **Forgot password:** request a reset link; the response avoids revealing whether an address is registered. Resetting a password does not bypass email confirmation for the next login.
 
-1. Create or select the intended Firebase project and register a Web App in [Firebase Console](https://console.firebase.google.com/). Copy its **public Web configuration object**; Google documents those identifiers in [Understand Firebase for web](https://firebase.google.com/docs/web/learn-more#config-object). Do not supply service-account JSON or private keys.
-2. Enable **Email/Password** in Authentication's sign-in methods. Enable **Google** if Google sign-in is desired and complete the provider's required project/support settings. Follow the official [password authentication](https://firebase.google.com/docs/auth/web/password-auth) and [Google authentication](https://firebase.google.com/docs/auth/web/google-signin) instructions.
-3. Add `trust-idiong.github.io` to Authentication's authorized domains for the public PWA. Authorize the exact hostname of any other release origin separately. Add `localhost` only if it is needed for development; this is not a repository subpath or full URL.
-4. Save the copied public Web configuration as a JSON object with `apiKey`, `authDomain`, `projectId` and `appId`. Run from the project directory:
+Confirmation tokens are stored hashed, expire after 15 minutes, and can be used only once. Resending requires a 60-second wait and replaces the earlier token. Links are consumed by the confirmation action rather than a page-preview GET. Brevo sends account confirmation and reset messages through its [transactional HTTPS API](https://developers.brevo.com/reference/send-transac-email); the API key stays on the server. Configure and verify the sender/domain as described in [Brevo's sending guide](https://developers.brevo.com/docs/send-a-transactional-email). Sending acceptance is not proof that an email reached an inbox.
 
-```powershell
-node scripts/auth-configure.mjs --input 'C:\PATH\public-firebase-web-config.json'
-```
+## Progress and device copies
 
-The helper writes the public [auth-config.js](../dist/auth-config.js) and rejects private/service-account fields. It does not create a project, enable providers, authorize domains, deploy, or prove that the provider is reachable. It retains only the fields used by the auth adapter; no Analytics or Firestore SDK is loaded.
+The authenticated user's complete version-4 profile/progress snapshot is stored in PostgreSQL. This includes plan preferences, workouts/walking, assessments, optional body records, favorites, custom routines, program status, reminder/estimate settings and adult pelvic-floor practice preferences. Current pelvic symptom/readiness answers are not saved. A separate browser namespace holds each UID's device copy. Existing device-only records remain available for an explicit import; signing in does not silently merge another profile's history.
 
-5. A future account release would also connect the appropriate UI, update privacy/store declarations for the provider data and test real creation, login, Google sign-in, reset-email receipt, verification and deletion, including recent-login requirements. None of this is needed for the confirmed current device-only release.
+Changes save locally first and upload when the verified account server is reachable. Offline changes remain pending for retry; offline status does not authorize owner access or provide a new login. After reconnecting, an expired session requires confirmation again before upload. A workout checkpoint and unfinished questionnaire remain device-local.
 
-## Future adapter behavior
+Every save carries a revision. A conflict preserves the local copy and offers an explicit choice instead of overwriting the server's newer state. Progress deletion retains a revision tombstone so a stale tab cannot recreate the cleared server record. `X-FORM-User` binds progress/owner requests to the expected UID, while Django's authenticated session authorizes them. Unsafe requests require CSRF protection. Production session cookies are HttpOnly and Secure; passwords and session tokens are not stored in localStorage.
 
-The adapter lazily imports only Firebase App and Auth from Google's official modular CDN, pinned to **13.0.0** as listed in the [current CDN setup guide](https://firebase.google.com/docs/web/alt-setup). Unconfigured and offline startup does not import the remote SDK. It does not manufacture a successful session or store passwords/custom refresh tokens in application code. Firebase manages the configured session persistence; see [Authentication state persistence](https://firebase.google.com/docs/auth/web/auth-state-persistence).
+## Private owner dashboard
 
-Email signup requires at least eight password characters locally, and the provider's password policy is still authoritative. Password reset and verification call the provider; the UI must not interpret a request acknowledgment as proof that an email arrived.
+The dashboard is available only to a server-granted staff/superuser account with an email-confirmed session. Create the owner interactively through Django administration; there are no default owner credentials and no browser control for granting staff privileges.
 
-Google uses the official popup method. Firebase documents popup sign-in as an option for separately hosted sites when cross-origin storage restrictions prevent redirect auth; see [redirect best practices](https://firebase.google.com/docs/auth/web/redirect-best-practices). The adapter reports blocked or cancelled popups and does not silently fall back to an unconfigured redirect. Mobile and installed-PWA Google sign-in still need real-device testing.
+The owner can search registered users and view account identity, logged workout counts/minutes, training dates, plan goals and permitted performance records. Dashboard responses exclude body measurements, weigh-ins, weight targets/baselines, birth year, gender, movement restrictions, free-text notes and effort/soreness. Pelvic-floor entries contribute actual counts/minutes with the generic title “Private wellness session”; their technique settings and specific routine metadata remain private in this response. Training logs are entered records, not independently verified physical activity. The account's full private snapshot still resides in the database for sync; database administrators and hosting infrastructure have operational access.
 
-The API includes `ready`, `getSession`, signup/login/reset, Google sign-in, verification, sign-out and provider-backed account deletion. A session snapshot exposes identity fields, not OAuth or refresh tokens. Firebase [requires recent authentication for account deletion](https://firebase.google.com/docs/auth/web/manage-users#delete_a_user); a rejected deletion must preserve the current account and explain that sign-in is needed again.
+## Deletion and verification
 
-## Prepared identity support does not synchronize training
+Users can export a plain JSON backup, clear saved progress, or delete their account after entering their password. Account deletion removes the live account and its server progress. Local copies on other devices, exported files, imported calendars and historical hosting backups need their own retention/deletion process. Provide a real privacy/support contact and backup-retention policy before store submission.
 
-The current device profile retains the original `form-seven.v1` record namespace. Prepared future account support selects a separate namespace by Firebase UID, with its own workout records, interruption checkpoint and setup draft. Account switching must pause activity and select that namespace without overwriting another profile's records; this is not an active cloud-account feature in the current release.
-
-Firebase Authentication does not provide workout-cloud storage. Guest history is not silently uploaded or moved into a newly signed-in account. Use an explicit backup export/restore in the intended profile to transfer training records. A new browser, device or website origin starts with its own local store.
-
-Device profiles can use the cached workout app offline. Remote signup, login, reset, verification and account deletion require a connection. On offline startup the adapter returns no authenticated session; this alone does not establish access to an account-specific local namespace. Do not describe a remembered device profile as a freshly authenticated cloud account.
-
-## Deletion and storage limits
-
-In the current device-only app, deleting local records clears the device profile's training records, setup draft and checkpoint in this browser. Other browser/device copies, exported files and imported calendar events need separate deletion. A future connected Firebase account would have a separate provider deletion operation and must also clear that profile's local records without affecting other namespaces.
-
-UID namespacing prevents ordinary UI account mixing; it is not encryption or an access-control boundary against someone with browser/device access. Firebase's persisted session and the app's unencrypted local health/fitness records have distinct storage/security behavior. Account creation also changes applicable Play account-deletion and Data safety declarations; review the final connected behavior before store submission.
+Automated tests check confirmation expiry/reuse, resend limits, permissions, CSRF, account isolation, state validation and conflict handling. They do not establish deployed Render availability, Brevo inbox delivery, phone installation or Android signing. Validate signup, confirmation, fresh login, reset, second-device sync, owner access denial, deletion and offline retry against the actual deployment before describing accounts as live.
