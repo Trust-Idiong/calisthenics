@@ -1,5 +1,5 @@
 /* Increment VERSION whenever a deployed application-shell asset changes. */
-const VERSION = '2026.10.16-2';
+const VERSION = '2026.10.17-1';
 const SCOPE = new URL('./', self.location.href);
 const PREFIX = 'form-seven:' + encodeURIComponent(SCOPE.pathname) + ':';
 const CACHE = PREFIX + VERSION;

@@ -1,14 +1,14 @@
 # Onboarding reference screen map
 
-Reference review October 13, 2026; account-mode update October 16, 2026. The user supplied **29 screenshots** as visual references. They cover welcome, a questionnaire and a scrollable final plan preview. Several images show continuations of the same stage; they do not define 29 distinct questions.
+Reference review October 13, 2026; account-mode update October 17, 2026. The user supplied **29 screenshots** as visual references. They cover welcome, a questionnaire and a scrollable final plan preview. Several images show continuations of the same stage; they do not define 29 distinct questions.
 
-No signup/login form, main app tabs, workout player or paywall was visible in this set. Existing app features were retained from FORM's requirements rather than claimed as copies of unseen reference screens. The later user request adds real email/password forms, Brevo email confirmation and Django/PostgreSQL progress sync before the questionnaire. Those account forms come from the explicit later request, not unseen screenshot content.
+No signup/login form, main app tabs, workout player or paywall was visible in this set. Existing app features were retained from FORM's requirements rather than claimed as copies of unseen reference screens. The later user request adds real email/password forms, Mailgun email confirmation and Django/PostgreSQL progress sync before the questionnaire. Those account forms come from the explicit later request, not unseen screenshot content.
 
 ## Screen mapping
 
 | Reference stage | Observed content | FORM implementation/adaptation |
 | --- | --- | --- |
-| Splash/welcome | Welcome video, LET'S GO and Log in entry | Original welcome photo and separate Sign up/Log in forms. Signup and each fresh login require an emailed confirmation before setup or saved Home. Existing device records remain available for explicit import. The prepared account flow needs the Django/Brevo deployment to operate. |
+| Splash/welcome | Welcome video, LET'S GO and Log in entry | Original welcome photo and separate Sign up/Log in forms. Signup and each fresh login require an emailed confirmation before setup or saved Home. Existing device records remain available for explicit import. The prepared account flow needs the Django/Mailgun deployment to operate. |
 | 01 · Goal: gender | Male, Female, Others, Prefer not to answer | Same profile-choice pattern. Gender does not dictate ability or lock goals to a stereotype. |
 | Motivation | Toning, confidence, energy, health, stress | One choice stored as a personal preference. It is not a diagnosis or a result guarantee. |
 | Main target | Lose weight, Build muscle, Keep fit | Ten FORM goals, including adult Six-pack & core strength and Figure 8 / glutes & core, plus strength, core, cardio, mobility, consistency and personal performance. Adult appearance/weight controls keep their age restrictions. Gender does not determine exercise dose or restrict adult goal choice. |
@@ -37,7 +37,7 @@ The implementation follows [SETUP_STEPS in onboarding.js](../dist/onboarding.js)
 
 The screenshots include example weights/dates, a **93%/40 kg** promotional claim and a **200 kcal/day** figure. These are observed marketing/example content, not validated requirements or evidence of an algorithm. FORM does not copy those claims into outcome calculations, infer an appearance score, or promise a physical transformation by a chosen date.
 
-The reference images do not establish provider connectivity, purchases, expert-coach endorsements, background notification delivery or cloud workout storage. The user's later account request is documented in [account setup](authentication-setup.md). Django/PostgreSQL and Brevo integration are prepared in source; no hosted backend or production email delivery has been established yet.
+The reference images do not establish provider connectivity, purchases, expert-coach endorsements, background notification delivery or cloud workout storage. The user's later account request is documented in [account setup](authentication-setup.md). Django/PostgreSQL and Mailgun integration are prepared in source; no hosted backend or production email delivery has been established yet.
 
 ## Assets and product scope
 

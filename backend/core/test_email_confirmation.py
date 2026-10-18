@@ -7,6 +7,7 @@ from django.test import Client, TestCase, override_settings
 from django.utils import timezone
 from .models import User, EmailChallenge, Progress
 from .tests import PASSWORD, confirmed_login, emailed_confirmation
+from .test_email_backend import MAIL_SETTINGS, multipart_fields
 
 class EmailConfirmationTests(TestCase):
     def setUp(self):
@@ -123,28 +124,97 @@ class EmailConfirmationTests(TestCase):
         self.assertFalse(User.objects.filter(email='new@example.test').exists())
         self.assertEqual(EmailChallenge.objects.count(),0)
 
-    @override_settings(EMAIL_BACKEND='core.email_backend.BrevoEmailBackend',BREVO_API_KEY='',BREVO_SENDER_EMAIL='sender@example.test')
-    def test_brevo_credentials_are_required_before_sending(self):
+    @override_settings(EMAIL_BACKEND='core.email_backend.MailgunEmailBackend',MAILGUN_API_KEY='',MAILGUN_SENDER_EMAIL='sender@example.test')
+    def test_mailgun_credentials_are_required_before_sending(self):
         self.assertEqual(self.post('login',{'email':self.user.email,'password':PASSWORD}).status_code,503)
         self.assertEqual(EmailChallenge.objects.count(),0)
 
-    @override_settings(EMAIL_BACKEND='core.email_backend.BrevoEmailBackend',BREVO_API_KEY='PRIVATE-TEST-KEY',BREVO_SENDER_EMAIL='verified@example.test')
-    def test_signup_to_confirmation_through_mocked_brevo_transport(self):
-        accepted=MagicMock();accepted.status=201;accepted.read.return_value=b'{"messageId":"accepted-test-message"}'
+    @override_settings(EMAIL_BACKEND='core.email_backend.MailgunEmailBackend',**MAIL_SETTINGS)
+    def test_signup_to_confirmation_through_mocked_mailgun_transport(self):
+        accepted=MagicMock();accepted.status=200;accepted.read.return_value=b'{"id":"accepted-test-message","message":"Queued. Thank you."}'
         accepted.__enter__.return_value=accepted
         with patch('core.email_backend.build_opener') as factory:
             factory.return_value.open.return_value=accepted
             response=self.post('signup',{'email':'new@example.test','password':PASSWORD,'trackingConsent':True})
         self.assertEqual(response.status_code,202)
-        message=json.loads(factory.return_value.open.call_args.args[0].data)
-        link=next(line for line in message['textContent'].splitlines() if line.startswith('https://'))
+        message=multipart_fields(factory.return_value.open.call_args.args[0])
+        link=next(line for line in message['text'].splitlines() if line.startswith('https://'))
         self.assertEqual(urlparse(link).query,'')
         values=parse_qs(urlparse(link).fragment.split('?',1)[1])
-        self.assertNotIn('PRIVATE-TEST-KEY',response.content.decode())
+        self.assertNotIn('DUMMY-TEST-KEY-NOT-REAL',response.content.decode())
         self.assertIsNone(self.client.get('/api/auth/session/').json()['user'])
         confirmed=self.post('confirm-email',{'challengeId':values['challenge'][0],'token':values['token'][0]})
         self.assertEqual(confirmed.status_code,200)
         self.assertEqual(confirmed.json()['user']['email'],'new@example.test')
+
+    @override_settings(EMAIL_BACKEND='core.email_backend.MailgunEmailBackend',**{**MAIL_SETTINGS,
+        'MAILGUN_DOMAIN':'sandbox-example.mailgun.org','MAILGUN_SANDBOX_RECIPIENTS':('tester@example.test',)})
+    def test_sandbox_blocks_unlisted_signup_login_and_reset_without_sending(self):
+        with patch('core.email_backend.build_opener') as factory:
+            signup=self.post('signup',{'email':'unlisted@example.test','password':PASSWORD,'trackingConsent':True})
+            signin=self.post('login',{'email':self.user.email,'password':PASSWORD})
+            known=self.post('password-reset',{'email':self.user.email})
+            unknown=self.post('password-reset',{'email':'unlisted@example.test'})
+        for response in [signup,signin,known,unknown]:
+            self.assertEqual(response.status_code,503,response.content)
+            self.assertEqual(response.json()['code'],'auth/email-unavailable')
+        self.assertEqual(known.json(),unknown.json())
+        factory.assert_not_called()
+        self.assertFalse(User.objects.filter(email='unlisted@example.test').exists())
+        self.assertEqual(EmailChallenge.objects.count(),0)
+        self.assertIsNone(self.client.get('/api/auth/session/').json()['user'])
+
+    @override_settings(EMAIL_BACKEND='core.email_backend.MailgunEmailBackend',**{**MAIL_SETTINGS,
+        'MAILGUN_DOMAIN':'sandbox-example.mailgun.org','MAILGUN_SANDBOX_RECIPIENTS':()})
+    def test_sandbox_empty_allowlist_blocks_account_creation(self):
+        with patch('core.email_backend.build_opener') as factory:
+            response=self.post('signup',{'email':'new@example.test','password':PASSWORD,'trackingConsent':True})
+        self.assertEqual(response.status_code,503)
+        self.assertFalse(User.objects.filter(email='new@example.test').exists())
+        self.assertEqual(EmailChallenge.objects.count(),0)
+        factory.assert_not_called()
+
+    @override_settings(EMAIL_BACKEND='core.email_backend.MailgunEmailBackend',**{**MAIL_SETTINGS,
+        'MAILGUN_DOMAIN':'sandbox-example.mailgun.org','MAILGUN_SANDBOX_RECIPIENTS':('athlete@example.test','new@example.test')})
+    def test_sandbox_allowlisted_signup_and_login_still_require_confirmation(self):
+        accepted=MagicMock();accepted.status=200;accepted.read.return_value=b'{"id":"accepted-test-message","message":"Queued. Thank you."}'
+        accepted.__enter__.return_value=accepted
+        with patch('core.email_backend.build_opener') as factory:
+            factory.return_value.open.return_value=accepted
+            signup=self.post('signup',{'email':'new@example.test','password':PASSWORD,'trackingConsent':True})
+            signin=self.post('login',{'email':self.user.email,'password':PASSWORD})
+        for response in [signup,signin]:
+            self.assertEqual(response.status_code,202,response.content)
+            self.assertTrue(response.json()['confirmationRequired'])
+        self.assertEqual(factory.return_value.open.call_count,2)
+        self.assertEqual(EmailChallenge.objects.count(),2)
+        self.assertIsNone(self.client.get('/api/auth/session/').json()['user'])
+
+    @override_settings(EMAIL_BACKEND='core.email_backend.MailgunEmailBackend',**{**MAIL_SETTINGS,
+        'MAILGUN_DOMAIN':'sandbox-example.mailgun.org','MAILGUN_SANDBOX_RECIPIENTS':('athlete@example.test','missing@example.test')})
+    def test_sandbox_allowed_reset_failure_is_non_enumerating_and_private(self):
+        with patch('core.email_backend.build_opener') as factory,self.assertLogs('core.views',level='ERROR') as logs:
+            factory.return_value.open.side_effect=RuntimeError('PRIVATE-PROVIDER-DIAGNOSTIC')
+            known=self.post('password-reset',{'email':self.user.email})
+            unknown=self.post('password-reset',{'email':'missing@example.test'})
+        self.assertEqual(known.status_code,202);self.assertEqual(known.json(),unknown.json())
+        self.assertEqual(factory.return_value.open.call_count,1)
+        serialized=str(logs.output)+known.content.decode()+unknown.content.decode()
+        for private in [self.user.email,'missing@example.test','PRIVATE-PROVIDER-DIAGNOSTIC','DUMMY-TEST-KEY-NOT-REAL']:
+            self.assertNotIn(private,serialized)
+        self.assertIsNone(self.client.get('/api/auth/session/').json()['user'])
+
+    def test_sandbox_removing_recipient_blocks_resend_without_replacing_old_link(self):
+        body,token=self.start()
+        original=EmailChallenge.objects.get(pk=body['challengeId']).token_digest
+        settings={**MAIL_SETTINGS,'EMAIL_BACKEND':'core.email_backend.MailgunEmailBackend',
+            'MAILGUN_DOMAIN':'sandbox-example.mailgun.org','MAILGUN_SANDBOX_RECIPIENTS':('tester@example.test',)}
+        with override_settings(**settings),patch('core.email_backend.build_opener') as factory:
+            response=self.post('resend-confirmation',{'challengeId':body['challengeId']})
+        self.assertEqual(response.status_code,503)
+        factory.assert_not_called()
+        self.assertEqual(EmailChallenge.objects.get(pk=body['challengeId']).token_digest,original)
+        self.assertEqual(self.post('confirm-email',token).status_code,200)
 
     @patch('core.confirmations.send_mail',side_effect=RuntimeError('PRIVATE-provider-error-should-not-appear'))
     def test_confirmation_transport_failure_rolls_back_account_and_challenge(self,send):

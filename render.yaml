@@ -25,12 +25,19 @@ services:
       - key: DATABASE_SSL_REQUIRE
         value: "true"
       # These values are entered privately when the Blueprint is applied.
-      # The sender must already be verified in Brevo. No secrets live in Git.
-      - key: BREVO_API_KEY
+      # Sandbox defaults are for limited testing, not public account signup.
+      # Enter a newly rotated key privately. No credential lives in Git.
+      - key: MAILGUN_API_KEY
         sync: false
-      - key: BREVO_SENDER_EMAIL
+      - key: MAILGUN_DOMAIN
+        value: sandbox4a98e1d2d5bb46da98de52888e624231.mailgun.org
+      - key: MAILGUN_API_BASE_URL
+        value: https://api.mailgun.net
+      - key: MAILGUN_SENDER_EMAIL
+        value: postmaster@sandbox4a98e1d2d5bb46da98de52888e624231.mailgun.org
+      - key: MAILGUN_SANDBOX_RECIPIENTS
         sync: false
-      - key: BREVO_SENDER_NAME
+      - key: MAILGUN_SENDER_NAME
         value: FORM
 databases:
   - name: form-calisthenics-db

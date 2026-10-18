@@ -98,12 +98,15 @@ WHITENOISE_MAX_AGE = 60
 WHITENOISE_INDEX_FILE = True
 STORAGES = {'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
     'staticfiles': {'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage'}}
-EMAIL_BACKEND = 'core.email_backend.BrevoEmailBackend'
-BREVO_API_KEY = os.environ.get('BREVO_API_KEY', '')
-BREVO_SENDER_EMAIL = os.environ.get('BREVO_SENDER_EMAIL', '')
-BREVO_SENDER_NAME = os.environ.get('BREVO_SENDER_NAME', 'FORM')
+EMAIL_BACKEND = 'core.email_backend.MailgunEmailBackend'
+MAILGUN_API_KEY = os.environ.get('MAILGUN_API_KEY', '')
+MAILGUN_DOMAIN = os.environ.get('MAILGUN_DOMAIN', '').strip().lower()
+MAILGUN_API_BASE_URL = os.environ.get('MAILGUN_API_BASE_URL', 'https://api.mailgun.net').rstrip('/')
+MAILGUN_SENDER_EMAIL = os.environ.get('MAILGUN_SENDER_EMAIL', '').strip()
+MAILGUN_SENDER_NAME = os.environ.get('MAILGUN_SENDER_NAME', 'FORM')
+MAILGUN_SANDBOX_RECIPIENTS = tuple(v.strip().lower() for v in os.environ.get('MAILGUN_SANDBOX_RECIPIENTS', '').split(',') if v.strip())
 EMAIL_TIMEOUT = 10
-DEFAULT_FROM_EMAIL = BREVO_SENDER_EMAIL
+DEFAULT_FROM_EMAIL = MAILGUN_SENDER_EMAIL
 PUBLIC_APP_URL = os.environ.get('PUBLIC_APP_URL',
     'https://' + os.environ['RENDER_EXTERNAL_HOSTNAME'] if os.environ.get('RENDER_EXTERNAL_HOSTNAME') else '').rstrip('/')
 PASSWORD_RESET_TIMEOUT = 3600

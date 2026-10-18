@@ -110,7 +110,7 @@ def signup(request):
     name=data.get('displayName','');text(name,80,'Display name')
     candidate=User(email=email,display_name=name.strip());validate_password(password,candidate)
     logout(request)
-    confirmations.require_email()
+    confirmations.require_email(email)
     try:
         with transaction.atomic():
             user=User.objects.create_user(email,password,display_name=name.strip(),tracking_consent_at=timezone.now(),tracking_consent_version='progress-v1')
@@ -157,7 +157,7 @@ def signout(request):
 @endpoint(['POST'])
 def password_reset(request):
     data=payload(request);email=email_value(data.get('email'));throttle(request,'reset',email)
-    confirmations.require_email()
+    confirmations.require_email(email)
     user=User.objects.filter(email=email,is_active=True).first()
     if user and user.has_usable_password():
         uid=urlsafe_base64_encode(force_bytes(str(user.pk)));token=default_token_generator.make_token(user)

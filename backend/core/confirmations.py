@@ -20,10 +20,12 @@ RESEND_SECONDS = 60
 MAX_SENDS = 5
 MAX_ATTEMPTS = 8
 
-def require_email():
+def require_email(recipient=None):
     configured = bool(settings.DEFAULT_FROM_EMAIL and settings.PUBLIC_APP_URL)
-    if settings.EMAIL_BACKEND == 'core.email_backend.BrevoEmailBackend':
-        configured = configured and bool(settings.BREVO_API_KEY and settings.BREVO_SENDER_EMAIL)
+    if settings.EMAIL_BACKEND == 'core.email_backend.MailgunEmailBackend':
+        from .email_backend import mailgun_config, MailgunDeliveryError
+        try: mailgun_config([recipient] if recipient else [])
+        except MailgunDeliveryError: configured=False
     if not configured:
         raise APIError('auth/email-unavailable','Account email confirmation is not configured by the app owner.',503)
 
@@ -52,7 +54,7 @@ def deliver(challenge,token):
         raise APIError('auth/email-unavailable','The confirmation email could not be sent. Try again later or contact the app owner.',503)
 
 def issue(user,purpose,password):
-    require_email()
+    require_email(user.email)
     raw=secrets.token_urlsafe(32)
     with transaction.atomic():
         locked=User.objects.select_for_update().get(pk=user.pk)
@@ -107,7 +109,7 @@ def confirm(challenge_id,token):
     return user
 
 def resend(challenge_id):
-    require_email();candidate=challenge_user(challenge_id)
+    candidate=challenge_user(challenge_id);require_email(candidate.email)
     with transaction.atomic():
         user=User.objects.select_for_update().get(pk=candidate.user_id)
         challenge=EmailChallenge.objects.select_for_update().get(pk=candidate.pk)
